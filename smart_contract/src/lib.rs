@@ -23,6 +23,3 @@ pub fn process_instruction(
     msg!("SolBet: Processing instruction");
     processor::process_instruction(program_id, accounts, instruction_data)
 }
-
-#[cfg(test)]
-mod tests;

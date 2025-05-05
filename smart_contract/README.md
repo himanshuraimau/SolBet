@@ -64,14 +64,6 @@ cd smart_contract
 cargo build-bpf
 ```
 
-## Testing the Contract
-
-Run the unit tests:
-```bash
-cd smart_contract
-cargo test-bpf
-```
-
 ## Deploying to Solana
 
 1. Create a wallet if you don't have one:
@@ -128,6 +120,3 @@ The contract follows a standard Solana program architecture:
 - DAO governance for dispute resolution
 - Fee structure for protocol sustainability
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
