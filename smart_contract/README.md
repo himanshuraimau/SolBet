@@ -61,7 +61,7 @@ rustup target add bpfelf-unknown-unknown
 3. Build the program:
 ```bash
 cd smart_contract
-cargo build-bpf
+cargo build-sbf
 ```
 
 ## Deploying to Solana
