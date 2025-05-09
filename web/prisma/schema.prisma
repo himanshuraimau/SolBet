@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id            String   @id @default(uuid())
+  walletAddress String   @unique
+  displayName   String?
+  avatar        String?
+  
+  // Stats
+  betsCreated   Int      @default(0)
+  betsJoined    Int      @default(0)
+  winRate       Float    @default(0)
+  totalWinnings Float    @default(0)
+  
+  // Preferences
+  theme         String   @default("system")
+  notifications Boolean  @default(true)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  bets          Bet[]    @relation("CreatedBets")
+  participations Participation[]
+  transactions   Transaction[]
+  activities     Activity[]
+  leaderboardEntries LeaderboardEntry[]
+
+  @@index([walletAddress])
+}
+
+// Bet model
+model Bet {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  category    String   // sports, politics, entertainment, crypto, weather, other
+  
+  // Amounts
+  yesPool     Float    @default(0)
+  noPool      Float    @default(0)
+  minimumBet  Float
+  maximumBet  Float
+  
+  // Dates
+  startTime   DateTime
+  endTime     DateTime
+  
+  // Status
+  status      String   @default("active") // active, closed, resolved_yes, resolved_no, disputed
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  creator     User     @relation("CreatedBets", fields: [creatorId], references: [id])
+  creatorId   String
+  participants Participation[]
+  transactions Transaction[]
+  activities   Activity[]
+
+  @@index([category])
+  @@index([status])
+  @@index([creatorId])
+  @@index([endTime])
+  @@index([category, status])
+}
+
+// Bet participation model
+model Participation {
+  id            String   @id @default(uuid())
+  position      String   // yes, no
+  amount        Float
+  timestamp     DateTime @default(now())
+  
+  // Relations
+  bet           Bet      @relation(fields: [betId], references: [id])
+  betId         String
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  @@index([betId])
+  @@index([userId])
+  @@unique([betId, userId, position])
+}
+
+// Transaction model
+model Transaction {
+  id            String   @id @default(uuid())
+  amount        Float
+  timestamp     DateTime @default(now())
+  type          String   // bet, deposit, withdrawal, winnings
+  status        String   @default("pending") // pending, confirmed, failed
+  txHash        String?
+  
+  // Relations
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  bet           Bet?     @relation(fields: [betId], references: [id])
+  betId         String?
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([betId])
+  @@index([userId, type])
+  @@index([timestamp])
+}
+
+// Activity model
+model Activity {
+  id            String   @id @default(uuid())
+  type          String   // bet_placed, bet_won, bet_lost, withdrawal, deposit, payout
+  title         String
+  amount        Float
+  timestamp     DateTime @default(now())
+  
+  // Relations
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  bet           Bet?     @relation(fields: [betId], references: [id])
+  betId         String?
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([timestamp])
+}
+
+// Leaderboard model
+model LeaderboardEntry {
+  id            String   @id @default(uuid())
+  rank          Int
+  winnings      Float
+  winRate       Float
+  period        String   // weekly, monthly, allTime
+  weekNumber    Int?
+  month         Int?
+  year          Int?
+  
+  // Relations
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([period])
+  @@index([period, year, month])
+  @@index([period, year, weekNumber])
+  @@index([period, rank])
+  @@unique([userId, period, year, month, weekNumber])
+}
