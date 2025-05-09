@@ -275,3 +275,128 @@ export const getBetsParticipated = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Error fetching bets' });
   }
 };
+
+/**
+ * Prepare a transaction for creating a new bet (to be signed by client)
+ */
+export const prepareBetTransaction = async (req: Request, res: Response) => {
+  try {
+    const { walletAddress } = req.user!;
+    const { 
+      title, 
+      description, 
+      expiresAt, 
+      minBetAmount, 
+      maxBetAmount 
+    } = req.body;
+    
+    // Validate input
+    if (!title || !description || !expiresAt || !minBetAmount || !maxBetAmount) {
+      return res.status(400).json({ message: 'Missing required bet parameters' });
+    }
+    
+    // Generate keypair for the bet account
+    const betAccount = Keypair.generate();
+    const escrowAccount = Keypair.generate();
+    
+    // Create transaction to initialize bet on Solana
+    const transaction = new Transaction();
+    transaction.add(
+      createInitializeBetInstruction(
+        new PublicKey(walletAddress),
+        betAccount.publicKey,
+        escrowAccount.publicKey,
+        Math.floor(new Date(expiresAt).getTime() / 1000), // Convert to Unix timestamp
+        minBetAmount,
+        maxBetAmount
+      )
+    );
+    
+    // Set recent blockhash
+    transaction.recentBlockhash = (
+      await connection.getLatestBlockhash('confirmed')
+    ).blockhash;
+    transaction.feePayer = new PublicKey(walletAddress);
+    
+    // Partially sign the transaction with the new accounts
+    transaction.partialSign(betAccount, escrowAccount);
+    
+    // Serialize the transaction for client-side signing
+    const serializedTransaction = transaction.serialize({
+      requireAllSignatures: false, // Allow partial signing
+      verifySignatures: false
+    }).toString('base64');
+    
+    // Return transaction data for client-side signing
+    return res.status(200).json({
+      transaction: serializedTransaction,
+      betAccount: betAccount.publicKey.toString(),
+      escrowAccount: escrowAccount.publicKey.toString(),
+      message: 'Transaction prepared. Please sign on client side.'
+    });
+  } catch (error) {
+    console.error('Error preparing bet transaction:', error);
+    return res.status(500).json({ message: 'Error preparing bet transaction' });
+  }
+};
+
+/**
+ * Process a client-signed transaction for creating a bet
+ */
+export const processBetTransaction = async (req: Request, res: Response) => {
+  try {
+    const { walletAddress } = req.user!;
+    const { 
+      title, 
+      description, 
+      expiresAt, 
+      minBetAmount, 
+      maxBetAmount,
+      signedTransaction,
+      betAccount,
+      escrowAccount
+    } = req.body;
+    
+    // Validate input
+    if (!title || !description || !expiresAt || !minBetAmount || !maxBetAmount || !signedTransaction || !betAccount || !escrowAccount) {
+      return res.status(400).json({ message: 'Missing required parameters' });
+    }
+    
+    // Convert base64 transaction to Buffer then to Transaction
+    const transaction = Transaction.from(Buffer.from(signedTransaction, 'base64'));
+    
+    // Send the signed transaction
+    const signature = await connection.sendRawTransaction(transaction.serialize());
+    await connection.confirmTransaction(signature, 'confirmed');
+    
+    // Create bet in MongoDB
+    const bet = new Bet({
+      title,
+      description,
+      creatorWallet: walletAddress,
+      betAccount,
+      escrowAccount,
+      minBetAmount,
+      maxBetAmount,
+      expiresAt: new Date(expiresAt),
+      status: BetStatus.ACTIVE
+    });
+    
+    await bet.save();
+    
+    // Update user's created bets
+    await User.findOneAndUpdate(
+      { walletAddress },
+      { $push: { createdBets: bet._id } }
+    );
+    
+    return res.status(201).json({
+      message: 'Bet created successfully',
+      bet,
+      transactionSignature: signature
+    });
+  } catch (error) {
+    console.error('Error processing bet transaction:', error);
+    return res.status(500).json({ message: 'Error processing bet transaction' });
+  }
+};

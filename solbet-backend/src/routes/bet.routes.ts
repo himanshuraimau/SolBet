@@ -34,6 +34,32 @@ router.post('/',
   }
 );
 
+// New route for preparing a transaction (to be signed by client)
+router.post('/prepare-transaction', 
+  (req: Request, res: Response, next: NextFunction) => {
+    verifyToken(req, res, (err?: any) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  (req: Request, res: Response) => {
+    BetController.prepareBetTransaction(req, res);
+  }
+);
+
+// New route for processing a client-signed transaction
+router.post('/process-transaction', 
+  (req: Request, res: Response, next: NextFunction) => {
+    verifyToken(req, res, (err?: any) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  (req: Request, res: Response) => {
+    BetController.processBetTransaction(req, res);
+  }
+);
+
 router.put('/:id/resolve', 
   (req: Request, res: Response, next: NextFunction) => {
     verifyToken(req, res, (err?: any) => {

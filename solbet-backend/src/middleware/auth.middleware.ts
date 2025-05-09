@@ -1,7 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PublicKey } from '@solana/web3.js';
-import { verify } from 'tweetnacl';
+import { sign } from 'tweetnacl'; // Import sign instead of verify
 import bs58 from 'bs58';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -35,14 +35,21 @@ export const verifyWalletSignature = (req: Request, res: Response, next: NextFun
     const messageUint8 = new TextEncoder().encode(message);
 
     // Get the public key from the wallet address
-    const publicKeyUint8 = new PublicKey(walletAddress).toBytes();
+    const publicKey = new PublicKey(walletAddress);
 
-    // Verify the signature
-    const isValid = verify(signatureUint8, Uint8Array.from([...messageUint8, ...publicKeyUint8]));
+    // Verify the signature using tweetnacl's sign.detached.verify
+    const isValid = sign.detached.verify(
+      messageUint8,      // The message that was signed
+      signatureUint8,    // The signature to verify
+      publicKey.toBytes() // The public key to verify against
+    );
 
     if (!isValid) {
       return next(new Error('Invalid signature'));
     }
+
+    // Add user to request object for the next middleware/controller
+    req.user = { walletAddress };
 
     // If valid, proceed to the next middleware
     next();

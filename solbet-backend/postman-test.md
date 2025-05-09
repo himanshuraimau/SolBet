@@ -59,35 +59,6 @@ POST {{BASE_URL}}/api/auth/login
 }
 ```
 
-### Development Login (Testing Only)
-
-```
-POST {{BASE_URL}}/api/auth/dev-login
-```
-
-**Headers:**
-- Content-Type: application/json
-
-**Body:**
-```json
-{
-  "walletAddress": "YOUR_WALLET_ADDRESS"
-}
-```
-
-**Response Example:**
-```json
-{
-  "message": "Development authentication successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "walletAddress": "YOUR_WALLET_ADDRESS",
-    "username": null,
-    "email": null
-  }
-}
-```
-
 ## Bet Endpoints
 
 ### Get All Bets
@@ -217,6 +188,91 @@ POST {{BASE_URL}}/api/bets
     "minBetAmount": 1000000000,
     "maxBetAmount": 5000000000,
     "expiresAt": "2023-09-30T23:59:59.999Z",
+    "status": "active",
+    "participants": [],
+    "createdAt": "2023-07-21T12:00:00.000Z",
+    "updatedAt": "2023-07-21T12:00:00.000Z"
+  },
+  "transactionSignature": "SOLANA_TRANSACTION_SIGNATURE"
+}
+```
+
+### Prepare Bet Transaction (Client-side Signing)
+
+```
+POST {{BASE_URL}}/api/bets/prepare-transaction
+```
+
+**Description:** Prepares a transaction for creating a bet that needs to be signed by the client wallet
+
+**Headers:**
+- Content-Type: application/json
+- Authorization: Bearer {{TOKEN}}
+
+**Body:**
+```json
+{
+  "title": "Will BTC hit $100K in 2023?",
+  "description": "This bet is about whether BTC will reach $100,000 in 2023",
+  "expiresAt": "2023-12-31T23:59:59.999Z",
+  "minBetAmount": 1000000000,
+  "maxBetAmount": 5000000000
+}
+```
+
+**Response Example:**
+```json
+{
+  "transaction": "BASE64_ENCODED_TRANSACTION",
+  "betAccount": "BET_ACCOUNT_PUBLIC_KEY",
+  "escrowAccount": "ESCROW_ACCOUNT_PUBLIC_KEY",
+  "message": "Transaction prepared. Please sign on client side."
+}
+```
+
+### Process Signed Bet Transaction
+
+```
+POST {{BASE_URL}}/api/bets/process-transaction
+```
+
+**Description:** Processes a transaction that was signed by the client and creates the bet
+
+**Headers:**
+- Content-Type: application/json
+- Authorization: Bearer {{TOKEN}}
+
+**Body:**
+```json
+{
+  "title": "Will BTC hit $100K in 2023?",
+  "description": "This bet is about whether BTC will reach $100,000 in 2023",
+  "expiresAt": "2023-12-31T23:59:59.999Z",
+  "minBetAmount": 1000000000,
+  "maxBetAmount": 5000000000,
+  "signedTransaction": "BASE64_ENCODED_SIGNED_TRANSACTION",
+  "betAccount": "BET_ACCOUNT_PUBLIC_KEY",
+  "escrowAccount": "ESCROW_ACCOUNT_PUBLIC_KEY"
+}
+```
+
+**Response Example:**
+```json
+{
+  "message": "Bet created successfully",
+  "bet": {
+    "_id": "60f8a5c50c8b2a001f3e8b9a",
+    "title": "Will BTC hit $100K in 2023?",
+    "description": "This bet is about whether BTC will reach $100,000 in 2023",
+    "creatorWallet": "YOUR_WALLET_ADDRESS",
+    "betAccount": "BET_ACCOUNT_PUBLIC_KEY",
+    "escrowAccount": "ESCROW_ACCOUNT_PUBLIC_KEY",
+    "totalPool": 0,
+    "yesPool": 0,
+    "noPool": 0,
+    "minBetAmount": 1000000000,
+    "maxBetAmount": 5000000000,
+    "expiresAt": "2023-12-31T23:59:59.999Z",
     "status": "active",
     "participants": [],
     "createdAt": "2023-07-21T12:00:00.000Z",
