@@ -4,18 +4,20 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Image from "next/image"
-import { ArrowRight, CheckCircle, AlertCircle } from "lucide-react"
+import { ArrowRight, CheckCircle, AlertCircle, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/providers/wallet-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 
-const wallets = [
+const walletInfo = [
   {
     id: "phantom",
     name: "Phantom",
     icon: "/placeholder.svg?height=48&width=48",
     description: "The most popular Solana wallet",
     recommended: true,
+    installUrl: "https://phantom.app/download",
   },
   {
     id: "solflare",
@@ -23,6 +25,7 @@ const wallets = [
     icon: "/placeholder.svg?height=48&width=48",
     description: "Solana's original wallet",
     recommended: false,
+    installUrl: "https://solflare.com/download",
   },
   {
     id: "backpack",
@@ -30,11 +33,12 @@ const wallets = [
     icon: "/placeholder.svg?height=48&width=48",
     description: "Multi-chain wallet with xNFT support",
     recommended: false,
+    installUrl: "https://www.backpack.app/download",
   },
 ]
 
 export default function WalletConnect() {
-  const { wallet, connecting, connect } = useWallet()
+  const { wallet, connecting, connect, availableWallets } = useWallet()
   const [selectedWallet, setSelectedWallet] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -59,8 +63,8 @@ export default function WalletConnect() {
       setTimeout(() => {
         router.push("/dashboard")
       }, 1500)
-    } catch (err) {
-      setError("Failed to connect wallet. Please try again.")
+    } catch (err: any) {
+      setError(err.message || "Failed to connect wallet. Please try again.")
     }
   }
 
@@ -83,7 +87,7 @@ export default function WalletConnect() {
             </TabsList>
             <TabsContent value="recommended" className="mt-4">
               <div className="space-y-4">
-                {wallets
+                {walletInfo
                   .filter((w) => w.recommended)
                   .map((wallet) => (
                     <WalletOption
@@ -92,19 +96,21 @@ export default function WalletConnect() {
                       selected={selectedWallet === wallet.id}
                       connecting={connecting}
                       onConnect={handleConnect}
+                      isInstalled={availableWallets.includes(wallet.id)}
                     />
                   ))}
               </div>
             </TabsContent>
             <TabsContent value="all" className="mt-4">
               <div className="space-y-4">
-                {wallets.map((wallet) => (
+                {walletInfo.map((wallet) => (
                   <WalletOption
                     key={wallet.id}
                     wallet={wallet}
                     selected={selectedWallet === wallet.id}
                     connecting={connecting}
                     onConnect={handleConnect}
+                    isInstalled={availableWallets.includes(wallet.id)}
                   />
                 ))}
               </div>
@@ -150,19 +156,21 @@ interface WalletOptionProps {
     icon: string
     description: string
     recommended: boolean
+    installUrl: string
   }
   selected: boolean
   connecting: boolean
+  isInstalled: boolean
   onConnect: (walletId: string) => void
 }
 
-function WalletOption({ wallet, selected, connecting, onConnect }: WalletOptionProps) {
+function WalletOption({ wallet, selected, connecting, isInstalled, onConnect }: WalletOptionProps) {
   return (
     <div
       className={`flex items-center justify-between p-4 rounded-lg border ${
         selected ? "border-primary-yellow bg-white/10" : "border-white/20"
-      } hover:border-primary-yellow hover:bg-white/10 transition-colors cursor-pointer`}
-      onClick={() => !connecting && onConnect(wallet.id)}
+      } hover:border-primary-yellow hover:bg-white/10 transition-colors ${isInstalled ? "cursor-pointer" : ""}`}
+      onClick={() => isInstalled && !connecting && onConnect(wallet.id)}
     >
       <div className="flex items-center space-x-3">
         <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white/10">
@@ -171,15 +179,38 @@ function WalletOption({ wallet, selected, connecting, onConnect }: WalletOptionP
         <div>
           <h3 className="font-medium">{wallet.name}</h3>
           <p className="text-sm text-text-pearl/80">{wallet.description}</p>
+          {!isInstalled && (
+            <a 
+              href={wallet.installUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs flex items-center gap-1 text-primary-yellow mt-1"
+            >
+              <Download className="h-3 w-3" /> Install wallet
+            </a>
+          )}
         </div>
       </div>
       <div>
         {selected && connecting ? (
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-yellow border-t-transparent" />
-        ) : selected ? (
-          <CheckCircle className="h-5 w-5 text-primary-yellow" />
+        ) : isInstalled ? (
+          selected ? (
+            <CheckCircle className="h-5 w-5 text-primary-yellow" />
+          ) : (
+            <ArrowRight className="h-5 w-5 text-text-pearl/60" />
+          )
         ) : (
-          <ArrowRight className="h-5 w-5 text-text-pearl/60" />
+          <Button
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs border-white/30 hover:bg-white/10 hover:text-primary-yellow"
+            asChild
+          >
+            <a href={wallet.installUrl} target="_blank" rel="noopener noreferrer">
+              Install
+            </a>
+          </Button>
         )}
       </div>
     </div>
