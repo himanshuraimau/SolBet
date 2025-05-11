@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
 // GET /api/users/transactions
 export async function GET(request: NextRequest) {
@@ -10,12 +9,6 @@ export async function GET(request: NextRequest) {
 
     if (!address) {
       return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    // Authenticate the user
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Get user from wallet address
@@ -35,7 +28,7 @@ export async function GET(request: NextRequest) {
         userId: user.id,
       },
       orderBy: {
-        createdAt: "desc",
+        timestamp: "desc",
       },
       take: 50, // Limit to recent 50 transactions
     });
@@ -64,10 +57,10 @@ export async function GET(request: NextRequest) {
       id: t.id,
       type: t.type,
       amount: Number(t.amount),
-      timestamp: t.createdAt.toISOString(),
+      timestamp: t.timestamp.toISOString(),
       betId: t.betId || undefined,
       betTitle: t.betId ? betsMap.get(t.betId) : undefined,
-      address: t.toAddress || undefined,
+      txHash: t.txHash || undefined,
       status: t.status,
     }));
 

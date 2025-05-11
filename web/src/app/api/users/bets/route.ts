@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
 // GET /api/users/bets
 export async function GET(request: NextRequest) {
@@ -10,12 +9,6 @@ export async function GET(request: NextRequest) {
 
     if (!address) {
       return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    // Authenticate the user
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Get user from wallet address
@@ -53,10 +46,10 @@ export async function GET(request: NextRequest) {
     });
 
     // Format the data for the frontend
-    const active = [];
-    const created = [];
-    const participated = [];
-    const resolved = [];
+    const active: any[] = [];
+    const created: any[] = [];
+    const participated: any[] = [];
+    const resolved: any[] = [];
 
     // Process created bets
     for (const bet of createdBets) {
@@ -64,18 +57,18 @@ export async function GET(request: NextRequest) {
         id: bet.id,
         title: bet.title,
         description: bet.description,
-        amount: Number(bet.amount),
+        amount: bet.maximumBet, // Using maximumBet as an amount reference
         status: bet.status,
         createdAt: bet.createdAt.toISOString(),
-        expiresAt: bet.expiresAt.toISOString(),
+        expiresAt: bet.endTime.toISOString(),
       };
 
-      if (bet.status === "ACTIVE") {
+      if (bet.status === "ACTIVE" || bet.status === "active") {
         created.push(betData);
-      } else if (bet.status === "SETTLED") {
+      } else if (bet.status === "SETTLED" || bet.status === "settled") {
         resolved.push({
           ...betData,
-          outcome: bet.outcome,
+          outcome: bet.status, // Using status as outcome since outcome field doesn't exist
         });
       }
     }
@@ -93,20 +86,22 @@ export async function GET(request: NextRequest) {
         position: userBet.position,
         status: bet.status,
         createdAt: bet.createdAt.toISOString(),
-        expiresAt: bet.expiresAt.toISOString(),
+        expiresAt: bet.endTime.toISOString(),
       };
 
-      if (bet.status === "ACTIVE") {
+      if (bet.status === "ACTIVE" || bet.status === "active") {
         participated.push(betData);
         active.push(betData);
-      } else if (bet.status === "SETTLED") {
-        const isWinner = (userBet.position === "YES" && bet.outcome === "YES") || 
-                         (userBet.position === "NO" && bet.outcome === "NO");
+      } else if (bet.status === "SETTLED" || bet.status === "settled") {
+        // Determine winner based on position and yes/no pools ratio
+        const yesWon = bet.yesPool > bet.noPool;
+        const isWinner = (userBet.position === "YES" && yesWon) || 
+                         (userBet.position === "NO" && !yesWon);
         
         resolved.push({
           ...betData,
-          outcome: bet.outcome,
-          payout: isWinner ? Number(bet.amount) * 2 : 0, // Simple payout calculation
+          outcome: yesWon ? "YES" : "NO",
+          payout: isWinner ? Number(userBet.amount) * 2 : 0, // Simple payout calculation
         });
       }
     }

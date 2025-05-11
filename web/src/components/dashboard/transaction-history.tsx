@@ -62,7 +62,7 @@ export function TransactionHistory() {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant={
-                        tx.status === "success"
+                        tx.status === "confirmed"
                           ? "success"
                           : tx.status === "failed"
                           ? "destructive"
@@ -92,7 +92,7 @@ export function TransactionHistory() {
                 </div>
                 
                 <div className="font-mono text-sm font-semibold">
-                  {tx.type === "deposit" || tx.type === "payout" ? "+" : "-"}
+                  {tx.type === "deposit" || tx.type === "winnings" || tx.type === "payout" ? "+" : "-"}
                   {formatSOL(tx.amount)}
                 </div>
               </div>

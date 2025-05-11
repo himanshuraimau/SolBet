@@ -4,13 +4,13 @@ import { useWalletData } from "@/store/wallet-store";
 
 export interface Transaction {
   id: string;
-  type: "deposit" | "withdrawal" | "bet" | "payout" | "transfer";
+  type: "deposit" | "withdrawal" | "bet" | "winnings" | "payout" | "lostBet";
   amount: number;
   timestamp: string;
-  address?: string;
+  txHash?: string;
   betId?: string;
   betTitle?: string;
-  status: "success" | "pending" | "failed";
+  status: "pending" | "confirmed" | "failed";
 }
 
 export interface TransactionsResponse {

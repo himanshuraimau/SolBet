@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
 // GET /api/users/activity
 export async function GET(request: NextRequest) {
@@ -12,12 +11,6 @@ export async function GET(request: NextRequest) {
 
     if (!address) {
       return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    // Authenticate the user
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Get user from wallet address
@@ -41,38 +34,51 @@ export async function GET(request: NextRequest) {
         timestamp: "desc",
       },
       take: limit,
-      include: {
-        bet: {
-          select: {
-            title: true,
-          },
+    });
+
+    // Get bet information for bet-related transactions
+    const betIds = transactions
+      .filter(t => t.betId !== null)
+      .map(t => t.betId);
+
+    const bets = await prisma.bet.findMany({
+      where: {
+        id: {
+          in: betIds as string[],
         },
       },
+      select: {
+        id: true,
+        title: true,
+      },
     });
+
+    const betsMap = new Map(bets.map(bet => [bet.id, bet.title]));
 
     // Format transactions for the activity feed
     const activities = transactions.map(tx => {
       // Map transaction types to activity types and create appropriate titles
       let activityType = "unknown";
       let title = "";
+      const betTitle = tx.betId ? betsMap.get(tx.betId) : undefined;
 
       switch (tx.type) {
         case "bet":
           activityType = "bet_placed";
-          title = tx.bet 
-            ? `Placed a bet on '${tx.bet.title}'` 
+          title = betTitle 
+            ? `Placed a bet on '${betTitle}'` 
             : "Placed a bet";
           break;
         case "winnings":
           activityType = "bet_won";
-          title = tx.bet 
-            ? `Won bet on '${tx.bet.title}'` 
+          title = betTitle 
+            ? `Won bet on '${betTitle}'` 
             : "Won a bet";
           break;
         case "lostBet":
           activityType = "bet_lost";
-          title = tx.bet 
-            ? `Lost bet on '${tx.bet.title}'` 
+          title = betTitle 
+            ? `Lost bet on '${betTitle}'` 
             : "Lost a bet";
           break;
         case "withdrawal":
@@ -85,8 +91,8 @@ export async function GET(request: NextRequest) {
           break;
         case "payout":
           activityType = "payout";
-          title = tx.bet 
-            ? `Received payout from '${tx.bet.title}'` 
+          title = betTitle 
+            ? `Received payout from '${betTitle}'` 
             : "Received payout";
           break;
         default:
