@@ -9,6 +9,7 @@ import Footer from "@/components/layout/footer"
 import { WalletProvider } from "@/providers/wallet-provider"
 import { QueryProvider } from "@/providers/query-provider"
 import { usePathname } from "next/navigation"
+import AuthStateProvider from "@/providers/auth-provider"
 
 export default function ClientRootLayout({
   children,
@@ -21,7 +22,7 @@ export default function ClientRootLayout({
   nunito: string
   jetbrainsMono: string
 }>) {
-  // Use state to control client-side rendering of wallet components
+  // Use state to track client-side hydration
   const [mounted, setMounted] = useState(false);
   
   // Set mounted to true when component mounts on client
@@ -34,21 +35,16 @@ export default function ClientRootLayout({
       <body className={`${spaceGrotesk} ${nunito} ${jetbrainsMono} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <QueryProvider>
-            {mounted ? (
-              <WalletProvider>
+            {/* Always render WalletProvider to ensure context is available */}
+            <WalletProvider>
+              <AuthStateProvider>
                 <div className="flex min-h-screen flex-col">
                   <Header />
                   <main className="flex-1">{children}</main>
                   <FooterWrapper />
                 </div>
-              </WalletProvider>
-            ) : (
-              <div className="flex min-h-screen flex-col">
-                <Header />
-                <main className="flex-1">{children}</main>
-                <FooterWrapper />
-              </div>
-            )}
+              </AuthStateProvider>
+            </WalletProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

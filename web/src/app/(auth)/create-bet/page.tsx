@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@solana/wallet-adapter-react"
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { useWalletData } from "@/store/wallet-store"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,14 @@ import { formatSOL } from "@/lib/utils"
 import { useCreateBet } from "@/lib/query/mutations/create-bet"
 import type { BetCategory } from "@/types/bet"
 import FadeIn from "@/components/motion/fade-in"
+import { 
+  Connection, 
+  PublicKey, 
+  Transaction, 
+  SystemProgram, 
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction
+} from "@solana/web3.js"
 
 const categories: { value: BetCategory; label: string }[] = [
   { value: "crypto", label: "Cryptocurrency" },
@@ -31,8 +40,8 @@ const categories: { value: BetCategory; label: string }[] = [
 ]
 
 export default function CreateBetPage() {
-  const { publicKey, connected } = useWallet()
-  const { balance } = useWalletData()
+  const { publicKey, connected, sendTransaction } = useWallet()
+  const { balance, refreshBalance } = useWalletData()
   const router = useRouter()
   const createBetMutation = useCreateBet()
 
@@ -46,29 +55,89 @@ export default function CreateBetPage() {
   )
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [creatingOnChain, setCreatingOnChain] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // Redirect if wallet not connected
-  if (!connected || !publicKey) {
-    return (
-      <div className="container py-10">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-card p-8 rounded-lg text-center">
-            <h2 className="text-xl font-semibold mb-4">Connect your wallet to create a bet</h2>
-            {/* You can add WalletMultiButton here if needed */}
-            <button 
-              className="btn-primary mt-4"
-              onClick={() => router.push("/")}
-            >
-              Go to Home
-            </button>
-          </div>
-        </div>
-      </div>
+  // Handle client-side mounting to prevent hydration mismatch
+  useState(() => {
+    setMounted(true)
+  })
+
+  // Generate a placeholder transaction for testing/development
+  const createPlaceholderTransaction = async () => {
+    if (!publicKey) {
+      throw new Error("Wallet not connected")
+    }
+
+    // Create a connection to the Solana network
+    const connection = new Connection(
+      process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.devnet.solana.com'
     )
+    
+    // Create a simple SOL transfer to self (placeholder)
+    // In production, this would be replaced with actual program instruction
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: publicKey, // Transfer to self (creates a valid transaction with minimal SOL movement)
+        lamports: 1000, // 0.000001 SOL - minimal amount
+      })
+    )
+    
+    // Get a recent blockhash to include in the transaction
+    const { blockhash } = await connection.getLatestBlockhash('finalized')
+    transaction.recentBlockhash = blockhash
+    transaction.feePayer = publicKey
+    
+    return { transaction, connection }
+  }
+
+  // Function to initialize bet on-chain
+  const initializeBetOnChain = async () => {
+    if (!publicKey || !endDate || !sendTransaction) {
+      setError("Wallet not connected")
+      return false
+    }
+
+    try {
+      setCreatingOnChain(true)
+      
+      const { transaction, connection } = await createPlaceholderTransaction()
+      
+      // Send the transaction using the wallet adapter
+      const signature = await sendTransaction(transaction, connection)
+      console.log("Transaction sent with signature:", signature)
+      
+      // Wait for confirmation
+      const confirmation = await connection.confirmTransaction(signature, 'confirmed')
+      
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${confirmation.value.err.toString()}`)
+      }
+      
+      console.log("Transaction confirmed:", signature)
+      
+      // Refresh the user's balance after the transaction
+      await refreshBalance()
+      
+      return true
+      
+    } catch (err: any) {
+      console.error("Error creating bet on chain:", err)
+      setError(`Failed to create bet: ${err.message || "Unknown error"}`)
+      return false
+    } finally {
+      setCreatingOnChain(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!publicKey) {
+      setError("Please connect your wallet first")
+      return
+    }
 
     if (!title) {
       setError("Please enter a title for your bet")
@@ -93,6 +162,14 @@ export default function CreateBetPage() {
     setError(null)
 
     try {
+      // Step 1: Create on-chain transaction
+      const onChainSuccess = await initializeBetOnChain()
+      
+      if (!onChainSuccess) {
+        return // Error is already set in initializeBetOnChain
+      }
+      
+      // Step 2: After on-chain success, persist in the database
       await createBetMutation.mutateAsync({
         title,
         description,
@@ -107,9 +184,46 @@ export default function CreateBetPage() {
       setTimeout(() => {
         router.push("/dashboard")
       }, 2000)
-    } catch (err) {
-      setError("Failed to create bet. Please try again.")
+    } catch (err: any) {
+      setError(`Failed to create bet: ${err.message || "Please try again"}`)
+      console.error("Error creating bet:", err)
     }
+  }
+
+  // If not mounted yet, show a loading placeholder to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold tracking-tight mb-8">Create a New Bet</h1>
+        <Card>
+          <CardContent className="flex justify-center py-10">
+            <div className="animate-pulse">Loading...</div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Redirect if wallet not connected
+  if (!connected || !publicKey) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold tracking-tight mb-8">Create a New Bet</h1>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <h2 className="text-xl font-semibold mb-6">Connect your wallet to create a bet</h2>
+            <WalletMultiButton className="wallet-adapter-button-custom bg-primary-gradient text-text-plum mb-4" />
+            <Button 
+              variant="outline"
+              onClick={() => router.push("/dashboard")}
+              className="mt-4"
+            >
+              Back to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -128,7 +242,7 @@ export default function CreateBetPage() {
                 <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
-                  placeholder="Will BTC reach $100k before July 2024?"
+                  placeholder="Will BTC reach $100k before July 2025?"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -243,13 +357,13 @@ export default function CreateBetPage() {
             <Button
               type="submit"
               className="w-full bg-primary-gradient text-text-plum"
-              disabled={createBetMutation.isPending || success}
+              disabled={createBetMutation.isPending || creatingOnChain || success}
               onClick={handleSubmit}
             >
-              {createBetMutation.isPending ? (
+              {createBetMutation.isPending || creatingOnChain ? (
                 <span className="flex items-center">
                   <span className="h-4 w-4 mr-2 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                  Creating Bet...
+                  {creatingOnChain ? "Creating On-Chain..." : "Saving Bet..."}
                 </span>
               ) : (
                 "Create Bet"

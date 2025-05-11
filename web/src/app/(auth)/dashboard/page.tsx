@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { useWallet } from "@/providers/wallet-provider"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { useWalletData } from "@/store/wallet-store"
+import { useAuth } from "@/providers/auth-provider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import UserHeader from "@/components/dashboard/user-header"
@@ -13,7 +15,9 @@ import BetHistoryChart from "@/components/charts/bet-history-chart"
 import FadeIn from "@/components/motion/fade-in"
 
 export default function DashboardPage() {
-  const { wallet, transactions } = useWallet()
+  const { publicKey, connected } = useWallet()
+  const { balance } = useWalletData()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("active")
 
   return (
@@ -108,12 +112,18 @@ export default function DashboardPage() {
                 <CardTitle>Recent Transactions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No recent transactions</p>
-                  <Button asChild variant="outline" className="mt-4">
-                    <Link href="/wallet-connect">Connect Wallet</Link>
-                  </Button>
-                </div>
+                {!connected || !publicKey ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No recent transactions</p>
+                    <Button asChild variant="outline" className="mt-4">
+                      <Link href="/wallet-connect">Connect Wallet</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No recent transactions for this wallet</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </FadeIn>

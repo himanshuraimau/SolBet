@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
@@ -18,6 +18,40 @@ export default function AuthWrapper({ children, redirectPath = "/" }: AuthWrappe
   const { publicKey, connected } = useWallet();
   const { user, isLoading, error } = useAuth();
   const router = useRouter();
+  // Add state to track client-side rendering
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted state on client-side to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Early return during server-side rendering to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="container py-10">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-center">Authentication Required</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 text-center">
+            <p className="mb-4">Connect your wallet to access this page</p>
+            <div className="flex flex-col gap-4 items-center">
+              <Button className="bg-primary-gradient text-text-plum">
+                Connect Wallet
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {}}
+              >
+                Go Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!connected || !publicKey) {
     return (

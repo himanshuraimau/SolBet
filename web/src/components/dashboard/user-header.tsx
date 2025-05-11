@@ -2,14 +2,13 @@
 
 import { useWallet } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { formatSOL } from "@/lib/utils"
 import { formatWalletAddress, getWalletInitial } from "@/lib/wallet"
-import { useWalletData, useWalletStore } from "@/store/wallet-store" 
+import { useWalletData } from "@/store/wallet-store" 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Copy, Check, RefreshCw, ExternalLink } from "lucide-react"
-import { useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/providers/auth-provider"
 
@@ -18,16 +17,38 @@ export default function UserHeader() {
   const { balance, isLoading, refreshBalance } = useWalletData();
   const { user } = useAuth(); // Get user data from auth provider
   const [copied, setCopied] = useState(false);
+  // Add state to track client-side rendering
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted state on client-side to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load balance when wallet is connected
   useEffect(() => {
     if (connected && publicKey) {
       refreshBalance();
-    } else {
-      // Clear wallet data when disconnected
-      useWalletStore.getState().clearWalletData();
     }
-  }, [connected, publicKey]);
+  }, [connected, publicKey, refreshBalance]);
+
+  // Early return during server-side rendering to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">
+            <p className="mb-4">Connecting to wallet...</p>
+            <div className="inline-block">
+              <Button className="bg-primary-gradient text-text-plum">
+                Connect Wallet
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!connected || !publicKey) {
     return (
@@ -100,7 +121,7 @@ export default function UserHeader() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="text-2xl font-mono font-bold">{formatSOL(balance)}</div>
+              <div className="text-2xl font-mono font-bold">{formatSOL(balance || 0)}</div>
               <Button
                 variant="ghost"
                 size="icon"

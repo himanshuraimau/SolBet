@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { useWalletData } from '@/store/wallet-store'; // Import from your store instead
+import { useWallet } from '@solana/wallet-adapter-react';
 import { formatWalletAddress } from "@/lib/wallet";
 
 export default function WalletBadge() {
   // Always call hooks at the top level, before any conditional statements
-  const { publicKey, connected } = useWalletData(); // Use your custom hook instead of useWallet
   const [mounted, setMounted] = useState(false);
   
   // Set mounted to true when component mounts on client
@@ -15,13 +14,16 @@ export default function WalletBadge() {
     setMounted(true);
   }, []);
 
-  // Only access and format publicKey after component is mounted
-  const displayAddress = mounted ? formatWalletAddress(publicKey) : "";
-
   // Don't render anything on server-side or during initial client render
   if (!mounted) {
     return <div className="h-10 w-[120px]"></div>; // Placeholder with similar dimensions
   }
+
+  // Only access wallet context after component is mounted
+  const { publicKey, connected } = useWallet();
+  
+  // Format address only if we have a publicKey
+  const displayAddress = publicKey ? formatWalletAddress(publicKey) : "";
 
   return (
     <div className="relative z-10">
