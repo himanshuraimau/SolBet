@@ -180,7 +180,11 @@ export function useWalletData() {
       
       // Get transaction history 
       const txHistory = await fetchWalletActivity(publicKey.toString());
-      setTransactions(txHistory);
+      const typedTransactions = txHistory.map(tx => ({
+        ...tx,
+        type: tx.type as unknown as WalletTransaction['type']
+      }));
+      setTransactions(typedTransactions);
     } catch (error) {
       console.error('Failed to refresh wallet data:', error);
     } finally {
