@@ -7,6 +7,7 @@ import { formatWalletAddress } from "@/lib/wallet";
 
 export default function WalletBadge() {
   // Always call hooks at the top level, before any conditional statements
+  const { publicKey, connected } = useWallet();
   const [mounted, setMounted] = useState(false);
   
   // Set mounted to true when component mounts on client
@@ -18,9 +19,6 @@ export default function WalletBadge() {
   if (!mounted) {
     return <div className="h-10 w-[120px]"></div>; // Placeholder with similar dimensions
   }
-
-  // Only access wallet context after component is mounted
-  const { publicKey, connected } = useWallet();
   
   // Format address only if we have a publicKey
   const displayAddress = publicKey ? formatWalletAddress(publicKey) : "";

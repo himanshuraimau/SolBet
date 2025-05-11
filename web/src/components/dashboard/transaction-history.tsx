@@ -1,103 +1,53 @@
-import { useUserTransactions } from "@/lib/query/hooks/use-user-transactions";
+"use client";
+
+import { useEffect } from "react";
+import { useWalletData } from "@/store/wallet-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { formatSOL } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRightIcon } from "lucide-react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import TransactionList from "@/components/wallet/transaction-list";
 import Link from "next/link";
 
 export function TransactionHistory() {
-  const { data, isLoading, error } = useUserTransactions();
+  const { publicKey, connected } = useWallet();
+  const { transactions, refreshBalance, isLoading } = useWalletData();
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <p>Failed to load transaction history</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const transactions = data?.transactions || [];
+  // Refresh wallet data when component mounts or when wallet is connected
+  useEffect(() => {
+    if (connected && publicKey) {
+      refreshBalance();
+    }
+  }, [connected, publicKey, refreshBalance]);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Transaction History</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-base">Transaction History</CardTitle>
+        <Button variant="link" className="h-auto p-0 text-xs" asChild>
+          <Link href="/wallet">
+            View All <ArrowRightIcon className="ml-1 h-3 w-3" />
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent>
-        {transactions.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No transactions found</p>
+        {!connected ? (
+          <div className="text-center text-sm text-muted-foreground py-6">
+            Connect your wallet to view transaction history
           </div>
-        ) : (
-          <div className="space-y-4">
-            {transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-start justify-between p-4 rounded-lg border bg-card/50"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        tx.status === "confirmed"
-                          ? "success"
-                          : tx.status === "failed"
-                          ? "destructive"
-                          : "warning"
-                      }
-                      className="capitalize"
-                    >
-                      {tx.status}
-                    </Badge>
-                    <Badge variant="outline" className="capitalize">
-                      {tx.type}
-                    </Badge>
-                  </div>
-                  
-                  {tx.betTitle && tx.betId && (
-                    <Link 
-                      href={`/bet/${tx.betId}`} 
-                      className="text-sm font-medium hover:underline block"
-                    >
-                      {tx.betTitle}
-                    </Link>
-                  )}
-                  
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}
-                  </span>
-                </div>
-                
-                <div className="font-mono text-sm font-semibold">
-                  {tx.type === "deposit" || tx.type === "winnings" || tx.type === "payout" ? "+" : "-"}
-                  {formatSOL(tx.amount)}
-                </div>
-              </div>
+        ) : isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
+        ) : transactions.length === 0 ? (
+          <div className="text-center text-sm text-muted-foreground py-6">
+            No transactions yet
+          </div>
+        ) : (
+          <TransactionList transactions={transactions.slice(0, 5)} />
         )}
       </CardContent>
     </Card>
