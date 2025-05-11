@@ -10,10 +10,8 @@ import {
 import { Buffer } from 'buffer';
 
 // Program ID for the SolBet smart contract on devnet
-const PROGRAM_ID = createSafePubkey(process.env.NEXT_PUBLIC_PROGRAM_ID || 'YourProgramIdHere');
-
-// Devnet connection
-export const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+// Use a default valid PublicKey if environment variable is not set
+const DEFAULT_PROGRAM_ID = '11111111111111111111111111111111'; // System Program as fallback
 
 // Helper function to validate a base58 string
 function isValidBase58(str: string): boolean {
@@ -27,11 +25,18 @@ function isValidBase58(str: string): boolean {
 
 // Helper function to safely create a PublicKey
 function createSafePubkey(address: string): PublicKey {
-  if (!isValidBase58(address)) {
-    throw new Error(`Invalid Solana address: ${address}. Must be a valid base58 string.`);
+  if (!address || !isValidBase58(address)) {
+    console.warn(`Invalid Solana address: ${address}. Using default program ID.`);
+    return new PublicKey(DEFAULT_PROGRAM_ID);
   }
   return new PublicKey(address);
 }
+
+// Initialize PROGRAM_ID safely
+const PROGRAM_ID = createSafePubkey(process.env.NEXT_PUBLIC_PROGRAM_ID || DEFAULT_PROGRAM_ID);
+
+// Devnet connection
+export const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
 
 // Initialize a bet
 export async function initializeBet(

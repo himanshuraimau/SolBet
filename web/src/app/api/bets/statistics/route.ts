@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+
 
 // GET /api/bets/statistics
 export async function GET(request: NextRequest) {
@@ -13,10 +13,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Authenticate the user
-    const session = await auth()
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
 
     // Get user from wallet address
     const user = await prisma.user.findFirst({
