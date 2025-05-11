@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model to store wallet information
+model User {
+  id            String    @id @default(cuid())
+  walletAddress String    @unique
+  displayName   String?
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Stats
+  betsCreated   Int       @default(0)
+  betsJoined    Int       @default(0)
+  winRate       Float     @default(0)
+  totalWinnings Float     @default(0)
+  
+  // Preferences
+  theme         String    @default("system")
+  notifications Boolean   @default(true)
+
+  // Relations
+  bets          Bet[]     @relation("CreatedBets")
+  participations UserBet[]
+  transactions  Transaction[]
+
+  @@index([walletAddress])
+}
+
+// Bet model
+model Bet {
+  id          String      @id @default(cuid())
+  title       String
+  description String?     @db.Text
+  category    String
+  yesPool     Float       @default(0)
+  noPool      Float       @default(0)
+  minimumBet  Float
+  maximumBet  Float
+  startTime   DateTime
+  endTime     DateTime
+  status      String      @default("active")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  creatorId   String
+  creator     User        @relation("CreatedBets", fields: [creatorId], references: [id])
+  participants UserBet[]
+
+  @@index([creatorId])
+  @@index([category])
+  @@index([status])
+}
+
+// UserBet tracks a user's participation in a bet
+model UserBet {
+  id          String      @id @default(cuid())
+  position    String      // "yes" or "no"
+  amount      Float
+  timestamp   DateTime    @default(now())
+  claimed     Boolean     @default(false)
+  
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  betId       String
+  bet         Bet         @relation(fields: [betId], references: [id])
+
+  @@unique([userId, betId])
+  @@index([userId])
+  @@index([betId])
+}
+
+// Transaction model to track user's wallet transactions
+model Transaction {
+  id          String      @id @default(cuid())
+  amount      Float
+  type        String      // "bet", "deposit", "withdrawal", "winnings"
+  status      String      // "pending", "confirmed", "failed"
+  timestamp   DateTime    @default(now())
+  
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  betId       String?     // Optional reference to a bet
+
+  @@index([userId])
+  @@index([type])
+}

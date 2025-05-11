@@ -1,15 +1,20 @@
 "use client";
 
-import { FC, ReactNode, useMemo, useEffect, useState } from "react";
+import { FC, ReactNode, useMemo } from "react";
 import { 
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl, Cluster } from "@solana/web3.js";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import AuthStateProvider from "./auth-provider";
 
 // Import wallet adapter styles
 import "@solana/wallet-adapter-react-ui/styles.css";
+
+// Create a React Query client
+const queryClient = new QueryClient();
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -17,29 +22,26 @@ interface WalletProviderProps {
 
 export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
   // You can customize the RPC endpoint based on your environment
-  const endpoint = useMemo(() => clusterApiUrl((process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet") as Cluster), []);
+  const endpoint = useMemo(() => 
+    clusterApiUrl((process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet") as Cluster), 
+  []);
   
   // Empty wallets array will use all available adapters
   // For production, import specific wallets from @solana/wallet-adapter-wallets
   const wallets = useMemo(() => [], []);
 
-  // Ensure we're only rendering on the client side
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Return null during SSR and initial render
-  if (!mounted) return <>{children}</>;
-
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          {children}
-        </WalletModalProvider>
-      </SolanaWalletProvider>
-    </ConnectionProvider>
+    <QueryClientProvider client={queryClient}>
+      <ConnectionProvider endpoint={endpoint}>
+        <SolanaWalletProvider wallets={wallets} autoConnect>
+          <WalletModalProvider>
+            <AuthStateProvider>
+              {children}
+            </AuthStateProvider>
+          </WalletModalProvider>
+        </SolanaWalletProvider>
+      </ConnectionProvider>
+    </QueryClientProvider>
   );
 };
 

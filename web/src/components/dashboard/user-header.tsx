@@ -11,10 +11,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Copy, Check, RefreshCw, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
+import { useAuth } from "@/providers/auth-provider"
 
 export default function UserHeader() {
   const { publicKey, connected } = useWallet();
   const { balance, isLoading, refreshBalance } = useWalletData();
+  const { user } = useAuth(); // Get user data from auth provider
   const [copied, setCopied] = useState(false);
 
   // Load balance when wallet is connected
@@ -48,12 +50,12 @@ export default function UserHeader() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Mock user stats
-  const stats = {
-    betsCreated: 12,
-    betsJoined: 28,
-    winRate: 64,
-    totalWinnings: 342.5,
+  // Use real user stats from the database if available, otherwise fallback to defaults
+  const stats = user?.stats || {
+    betsCreated: 0,
+    betsJoined: 0,
+    winRate: 0,
+    totalWinnings: 0,
   }
 
   return (
@@ -91,7 +93,9 @@ export default function UserHeader() {
                     </a>
                   </Button>
                 </div>
-                <div className="text-sm text-text-pearl/80">Connected Wallet</div>
+                <div className="text-sm text-text-pearl/80">
+                  {user?.displayName ? user.displayName : "Connected Wallet"}
+                </div>
               </div>
             </div>
 
