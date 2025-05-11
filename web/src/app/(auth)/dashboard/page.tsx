@@ -3,22 +3,23 @@
 import { useState } from "react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useWalletData } from "@/store/wallet-store"
-import { useAuth } from "@/providers/auth-provider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import UserHeader from "@/components/dashboard/user-header"
 import ActivityFeed from "@/components/dashboard/activity-feed"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { BetHistoryChart } from "@/components/charts/bet-history-chart" // Changed from default to named import
+import { BetHistoryChart } from "@/components/charts/bet-history-chart" 
 import FadeIn from "@/components/motion/fade-in"
+import { useUserBets } from "@/lib/query/hooks/use-user-bets"
+import { BetCard } from "@/components/dashboard/bet-card"
+import { TransactionHistory } from "@/components/dashboard/transaction-history"
 
 export default function DashboardPage() {
   const { publicKey, connected } = useWallet()
-  const { balance } = useWalletData()
-  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("active")
+  const { data: userBets, isLoading: isLoadingBets } = useUserBets()
 
   return (
     <div className="space-y-8">
@@ -65,41 +66,81 @@ export default function DashboardPage() {
                     <TabsTrigger value="resolved">Resolved</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="active">
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>You don't have any active bets</p>
-                      <Button asChild variant="outline" className="mt-4">
-                        <Link href="/browse">Browse Bets</Link>
-                      </Button>
+                  {isLoadingBets ? (
+                    <div className="flex justify-center items-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                  </TabsContent>
+                  ) : (
+                    <>
+                      <TabsContent value="active">
+                        {userBets?.active && userBets.active.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-4">
+                            {userBets.active.map(bet => (
+                              <BetCard key={bet.id} bet={bet} type="active" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>You don&apos;t have any active bets</p>
+                            <Button asChild variant="outline" className="mt-4">
+                              <Link href="/browse">Browse Bets</Link>
+                            </Button>
+                          </div>
+                        )}
+                      </TabsContent>
 
-                  <TabsContent value="created">
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>You haven't created any bets yet</p>
-                      <Button asChild variant="outline" className="mt-4">
-                        <Link href="/create-bet">Create a Bet</Link>
-                      </Button>
-                    </div>
-                  </TabsContent>
+                      <TabsContent value="created">
+                        {userBets?.created && userBets.created.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-4">
+                            {userBets.created.map(bet => (
+                              <BetCard key={bet.id} bet={bet} type="created" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>You haven&apos;t created any bets yet</p>
+                            <Button asChild variant="outline" className="mt-4">
+                              <Link href="/create-bet">Create a Bet</Link>
+                            </Button>
+                          </div>
+                        )}
+                      </TabsContent>
 
-                  <TabsContent value="participated">
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>You haven't participated in any bets yet</p>
-                      <Button asChild variant="outline" className="mt-4">
-                        <Link href="/browse">Browse Bets</Link>
-                      </Button>
-                    </div>
-                  </TabsContent>
+                      <TabsContent value="participated">
+                        {userBets?.participated && userBets.participated.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-4">
+                            {userBets.participated.map(bet => (
+                              <BetCard key={bet.id} bet={bet} type="participated" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>You haven&apos;t participated in any bets yet</p>
+                            <Button asChild variant="outline" className="mt-4">
+                              <Link href="/browse">Browse Bets</Link>
+                            </Button>
+                          </div>
+                        )}
+                      </TabsContent>
 
-                  <TabsContent value="resolved">
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>You don't have any resolved bets</p>
-                      <Button asChild variant="outline" className="mt-4">
-                        <Link href="/browse">Browse Bets</Link>
-                      </Button>
-                    </div>
-                  </TabsContent>
+                      <TabsContent value="resolved">
+                        {userBets?.resolved && userBets.resolved.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-4">
+                            {userBets.resolved.map(bet => (
+                              <BetCard key={bet.id} bet={bet} type="resolved" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>You don&apos;t have any resolved bets</p>
+                            <Button asChild variant="outline" className="mt-4">
+                              <Link href="/browse">Browse Bets</Link>
+                            </Button>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </>
+                  )}
                 </Tabs>
               </CardContent>
             </Card>
@@ -107,25 +148,7 @@ export default function DashboardPage() {
         </div>
         <div>
           <FadeIn delay={0.4} direction="left">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!connected || !publicKey ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No recent transactions</p>
-                    <Button asChild variant="outline" className="mt-4">
-                      <Link href="/wallet-connect">Connect Wallet</Link>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No recent transactions for this wallet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <TransactionHistory />
           </FadeIn>
         </div>
       </div>

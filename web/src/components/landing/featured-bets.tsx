@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -12,7 +12,7 @@ import { useBets } from "@/lib/query/hooks/use-bets"
 import { Skeleton } from "@/components/ui/skeleton"
 
 // Only keep the categories definition
-const CATEGORIES: BetCategory[] = ["crypto", "sports", "politics", "entertainment", "technology"]
+const CATEGORIES: BetCategory[] = ["crypto", "sports", "politics", "entertainment", "other"]
 
 // Utility function to calculate time remaining
 const getTimeRemaining = (endTime: Date) => {
@@ -112,7 +112,7 @@ export default function FeaturedBets() {
             ) : (
               // Display bets
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {displayBets.map((bet) => (
+                {displayBets.map((bet: { id: Key | null | undefined; category: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; endTime: string | number | Date; title: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; yesPool: number; noPool: number; participants: string | any[] }) => (
                   <Card key={bet.id} className="overflow-hidden hover-scale transition-premium">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">

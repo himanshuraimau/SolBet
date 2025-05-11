@@ -28,6 +28,8 @@ export const queryKeys = {
     bets: () => [...queryKeys.user.all, "bets"] as const,
     transactions: () => [...queryKeys.user.all, "transactions"] as const,
     stats: () => [...queryKeys.user.all, "stats"] as const,
+    betStats: () => [...queryKeys.user.all, "betStats"] as const,
+    activity: () => [...queryKeys.user.all, "activity"] as const,
   },
   wallet: {
     all: ["wallet"] as const,

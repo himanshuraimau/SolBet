@@ -6,28 +6,122 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { formatSOL, shortenAddress } from "@/lib/utils"
-import { Trophy, TrendingUp, Medal } from "lucide-react"
+import { Trophy, TrendingUp, Medal, Loader2 } from "lucide-react"
 import FadeIn from "@/components/motion/fade-in"
-import { useQuery } from "@tanstack/react-query"
+import { useLeaderboard } from "@/lib/query/hooks/use-community-data"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type LeaderboardPeriod = "weekly" | "monthly" | "allTime"
-
-// Updated API function
-const fetchLeaderboardFromApi = async (period: LeaderboardPeriod) => {
-  const response = await fetch(`/api/community/leaderboard?period=${period}`)
-  if (!response.ok) {
-    throw new Error("Failed to fetch leaderboard")
-  }
-  return response.json()
-}
 
 export default function Leaderboard() {
   const [period, setPeriod] = useState<LeaderboardPeriod>("weekly")
 
-  const { data: leaderboardData = [] } = useQuery({
-    queryKey: ["leaderboard", period],
-    queryFn: () => fetchLeaderboardFromApi(period),
-  })
+  const { data: leaderboardData = [], isLoading, error } = useLeaderboard(period);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary-yellow" />
+                Leaderboard
+              </CardTitle>
+              <CardDescription>Top performers on SolBet</CardDescription>
+            </div>
+            <Tabs value={period} onValueChange={(v) => setPeriod(v as LeaderboardPeriod)}>
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                <TabsTrigger value="allTime">All Time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-8 h-8 rounded-full" />
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div>
+                    <Skeleton className="h-4 w-24 mb-2" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-20" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary-yellow" />
+                Leaderboard
+              </CardTitle>
+              <CardDescription>Top performers on SolBet</CardDescription>
+            </div>
+            <Tabs value={period} onValueChange={(v) => setPeriod(v as LeaderboardPeriod)}>
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                <TabsTrigger value="allTime">All Time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Failed to load leaderboard data</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Empty state
+  if (!leaderboardData || leaderboardData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary-yellow" />
+                Leaderboard
+              </CardTitle>
+              <CardDescription>Top performers on SolBet</CardDescription>
+            </div>
+            <Tabs value={period} onValueChange={(v) => setPeriod(v as LeaderboardPeriod)}>
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                <TabsTrigger value="allTime">All Time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No leaderboard data available for this period</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -63,7 +157,7 @@ export default function Leaderboard() {
                   </Avatar>
                   <div>
                     <div className="font-medium flex items-center gap-2">
-                      {shortenAddress(user.address)}
+                      {user.displayName || shortenAddress(user.address)}
                       {user.rank <= 3 && (
                         <Badge variant="outline" className={getRankBadgeClass(user.rank)}>
                           <Medal className="h-3 w-3 mr-1" />

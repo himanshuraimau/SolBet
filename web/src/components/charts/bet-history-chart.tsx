@@ -8,12 +8,18 @@ import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
 import { Skeleton } from "../ui/skeleton"
 import type { TimeFrame } from "@/types/common"
 
-export function BetHistoryChart() {
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("7d")
+interface BetHistoryChartProps {
+  timeFrame?: TimeFrame;
+}
+
+export function BetHistoryChart({ timeFrame: externalTimeFrame }: BetHistoryChartProps) {
+  const [internalTimeFrame, setInternalTimeFrame] = useState<TimeFrame>("7d")
+  // Use the external timeFrame if provided, otherwise use the internal state
+  const timeFrame = externalTimeFrame || internalTimeFrame
   const { data, isLoading } = useBetHistory(timeFrame)
 
   const handleTimeFrameChange = (value: string) => {
-    setTimeFrame(value as TimeFrame)
+    setInternalTimeFrame(value as TimeFrame)
   }
 
   if (isLoading) {
@@ -73,14 +79,17 @@ export function BetHistoryChart() {
           <CardTitle>Betting Activity</CardTitle>
           <CardDescription>Your betting activity over time</CardDescription>
         </div>
-        <Tabs value={timeFrame} onValueChange={handleTimeFrameChange}>
-          <TabsList>
-            <TabsTrigger value="1d">Day</TabsTrigger>
-            <TabsTrigger value="7d">Week</TabsTrigger>
-            <TabsTrigger value="30d">Month</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Only show tabs if external timeFrame is not provided */}
+        {!externalTimeFrame && (
+          <Tabs value={timeFrame} onValueChange={handleTimeFrameChange}>
+            <TabsList>
+              <TabsTrigger value="1d">Day</TabsTrigger>
+              <TabsTrigger value="7d">Week</TabsTrigger>
+              <TabsTrigger value="30d">Month</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </CardHeader>
       <CardContent className="h-80">
         {chartData.length > 0 ? (

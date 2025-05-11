@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Copy, Check, RefreshCw, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/providers/auth-provider"
+import { useUserStats } from "@/lib/query/hooks/use-user-data"
 
 export default function UserHeader() {
   const { publicKey, connected } = useWallet();
@@ -72,11 +73,13 @@ export default function UserHeader() {
   }
 
   // Use real user stats from the database if available, otherwise fallback to defaults
-  const stats = user?.stats || {
-    betsCreated: 0,
-    betsJoined: 0,
-    winRate: 0,
-    totalWinnings: 0,
+  const { data: userStatsData } = useUserStats("all");
+
+  const stats = {
+    betsCreated: userStatsData?.stats.betsPlaced || 0,
+    betsJoined: userStatsData?.stats.betsPlaced || 0,
+    winRate: userStatsData?.stats.winRate || 0,
+    totalWinnings: userStatsData?.stats.netProfit || 0,
   }
 
   return (

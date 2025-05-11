@@ -80,15 +80,17 @@ export function useUserProfile() {
 }
 
 // Hook to fetch user stats for a specific time frame
-export function useUserStats(timeFrame: TimeFrame) {
+export function useUserStats(timeFrame: TimeFrame = "7d") {
   const { publicKey } = useWalletData();
   const walletAddress = publicKey?.toString();
 
-  return useQuery({
+  return useQuery<UserStatisticsResponse>({
     queryKey: [...queryKeys.user.stats(), timeFrame],
     queryFn: () => fetchUserStatsFromApi(walletAddress || "", timeFrame),
     enabled: !!walletAddress,
-  })
+    // Keep statistics data fresh
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
 }
 
 // Hook to get betting history data

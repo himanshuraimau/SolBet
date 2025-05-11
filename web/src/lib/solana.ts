@@ -10,7 +10,7 @@ import {
 import { Buffer } from 'buffer';
 
 // Program ID for the SolBet smart contract on devnet
-export const PROGRAM_ID = process.env.NEXT_PUBLIC_PROGRAM_ID || 'YourProgramIdHere';
+const PROGRAM_ID = createSafePubkey(process.env.NEXT_PUBLIC_PROGRAM_ID || 'YourProgramIdHere');
 
 // Devnet connection
 export const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
@@ -67,7 +67,7 @@ export async function initializeBet(
         { pubkey: escrowAccount.publicKey, isSigner: true, isWritable: true }, // Escrow account
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false } // System program
       ],
-      programId: PROGRAM_ID,
+      programId: PROGRAM_ID, // Now using PublicKey type 
       data: instructionData,
     });
     

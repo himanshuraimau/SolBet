@@ -190,17 +190,17 @@ export async function placeBet(
       throw new Error(`Bet amount must be between ${bet.minimumBet} and ${bet.maximumBet}`);
     }
 
-    // Create participation
-    await tx.participation.create({
+    // Create user bet participation (changed from participation to userBet)
+    await tx.userBet.create({
       data: {
         position,
         amount,
-        bet: {
-          connect: { id: betId },
-        },
         user: {
-          connect: { id: user.id },
+          connect: { id: user.id }
         },
+        bet: {
+          connect: { id: betId }
+        }
       },
     });
 
@@ -225,35 +225,20 @@ export async function placeBet(
       },
     });
 
-    // Create transaction record
+    // Create transaction record - removed bet connection since it's not properly defined in schema
     await tx.transaction.create({
       data: {
         amount,
         type: 'bet',
         status: 'confirmed',
+        betId: betId, // Use betId field directly
         user: {
           connect: { id: user.id },
-        },
-        bet: {
-          connect: { id: betId },
         },
       },
     });
 
-    // Create activity record
-    await tx.activity.create({
-      data: {
-        type: 'bet_placed',
-        title: `placed a bet on '${bet.title}'`,
-        amount,
-        user: {
-          connect: { id: user.id },
-        },
-        bet: {
-          connect: { id: betId },
-        },
-      },
-    });
+    // Removed activity creation since the model doesn't exist in schema
 
     return mapPrismaBetToAppBet(updatedBet);
   });

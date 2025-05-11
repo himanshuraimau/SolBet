@@ -6,22 +6,75 @@ import { formatSOL, shortenAddress } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import { Ticket, Trophy, TrendingDown, Coins, ArrowUpRight } from "lucide-react"
 import FadeIn from "@/components/motion/fade-in"
-import { useQuery } from "@tanstack/react-query"
-
-// Updated API function
-const fetchCommunityActivityFromApi = async () => {
-  const response = await fetch("/api/community/activity")
-  if (!response.ok) {
-    throw new Error("Failed to fetch community activity")
-  }
-  return response.json()
-}
+import { useCommunityActivity } from "@/lib/query/hooks/use-community-data"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SocialActivityFeed() {
-  const { data: activities = [] } = useQuery({
-    queryKey: ["communityActivity"],
-    queryFn: fetchCommunityActivityFromApi,
-  })
+  const { data: activities = [], isLoading, error } = useCommunityActivity();
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Community Activity</CardTitle>
+          <CardDescription>Recent activity from the SolBet community</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex gap-4">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <Skeleton className="h-4 w-32 mb-2" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Community Activity</CardTitle>
+          <CardDescription>Recent activity from the SolBet community</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Failed to load community activity</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show empty state
+  if (!activities || activities.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Community Activity</CardTitle>
+          <CardDescription>Recent activity from the SolBet community</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No community activity yet</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -45,7 +98,7 @@ export default function SocialActivityFeed() {
                         <span className="text-muted-foreground">{activity.title}</span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
+                        {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
                       </div>
                     </div>
                     <div className={`flex items-center ${getActivityAmountClass(activity.type)}`}>

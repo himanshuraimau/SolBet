@@ -1,47 +1,89 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDistanceToNow } from "date-fns"
-import { Ticket, Trophy, TrendingDown, Coins, ArrowUpRight } from "lucide-react"
-
-// Mock activity data
-const activities = [
-  {
-    id: "act1",
-    type: "bet_placed",
-    title: "Placed a bet on 'Will BTC reach $100k before July 2024?'",
-    amount: 5.2,
-    timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-  },
-  {
-    id: "act2",
-    type: "bet_won",
-    title: "Won bet on 'Will the Lakers win against the Celtics?'",
-    amount: 12.8,
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3), // 3 hours ago
-  },
-  {
-    id: "act3",
-    type: "bet_lost",
-    title: "Lost bet on 'Will it rain in Miami on May 15th?'",
-    amount: 2.5,
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-  },
-  {
-    id: "act4",
-    type: "withdrawal",
-    title: "Withdrew funds to wallet",
-    amount: 20.0,
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-  },
-  {
-    id: "act5",
-    type: "payout",
-    title: "Received payout from 'Will ETH merge happen in September?'",
-    amount: 15.3,
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-  },
-]
+import { Ticket, Trophy, TrendingDown, Coins, ArrowUpRight, Loader2 } from "lucide-react"
+import { useUserActivity } from "@/lib/query/hooks/use-user-activity"
+import { Button } from "../ui/button"
+import Link from "next/link"
+import { useWallet } from "@solana/wallet-adapter-react"
 
 export default function ActivityFeed() {
+  const { publicKey, connected } = useWallet()
+  const { data: activities, isLoading, error } = useUserActivity(5)
+
+  if (!connected || !publicKey) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Your latest betting activity</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Connect your wallet to view your activity</p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href="/wallet-connect">Connect Wallet</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Loading your activity...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>There was an error loading your activity</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Failed to load your betting activity</p>
+            <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // If no activities are found
+  if (!activities || activities.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Your latest betting activity</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No activity found</p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href="/browse">Browse Bets</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -67,7 +109,7 @@ export default function ActivityFeed() {
                 <div className="font-medium">{activity.title}</div>
                 <div className="flex items-center justify-between mt-1">
                   <div className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
+                    {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
                   </div>
                   <div className={`text-sm font-mono font-medium ${getActivityAmountClass(activity.type)}`}>
                     {getActivityAmountPrefix(activity.type)}
