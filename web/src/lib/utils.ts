@@ -5,12 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-
-export function formatSOL(amount: number): string {
+export function formatSOL(amount: number | undefined | null): string {
+  // Return 0 SOL if amount is undefined or null
+  if (amount === undefined || amount === null) {
+    return "0.00 SOL";
+  }
+  
   return `${amount.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} SOL`
+  })} SOL`;
 }
 
 export function shortenAddress(address: string): string {

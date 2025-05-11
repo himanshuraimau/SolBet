@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useState, useEffect } from "react"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import Header from "@/components/layout/header"
@@ -20,18 +21,34 @@ export default function ClientRootLayout({
   nunito: string
   jetbrainsMono: string
 }>) {
+  // Use state to control client-side rendering of wallet components
+  const [mounted, setMounted] = useState(false);
+  
+  // Set mounted to true when component mounts on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${spaceGrotesk} ${nunito} ${jetbrainsMono} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <QueryProvider>
-            <WalletProvider>
+            {mounted ? (
+              <WalletProvider>
+                <div className="flex min-h-screen flex-col">
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                  <FooterWrapper />
+                </div>
+              </WalletProvider>
+            ) : (
               <div className="flex min-h-screen flex-col">
                 <Header />
                 <main className="flex-1">{children}</main>
                 <FooterWrapper />
               </div>
-            </WalletProvider>
+            )}
           </QueryProvider>
         </ThemeProvider>
       </body>

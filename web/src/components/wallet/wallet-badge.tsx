@@ -1,95 +1,70 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useWallet } from "@/providers/wallet-provider"
-import { Button } from "@/components/ui/button"
-import { Wallet, Copy, Check, LogOut, RefreshCw } from "lucide-react"
-import { shortenAddress } from "@/lib/utils"
-import { formatSOL } from "@/lib/utils"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import Link from "next/link"
+import { useState, useEffect } from 'react';
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { useWalletData } from '@/store/wallet-store'; // Import from your store instead
+import { formatWalletAddress } from "@/lib/wallet";
 
 export default function WalletBadge() {
-  const { wallet, disconnect, refreshBalance } = useWallet()
-  const [copied, setCopied] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
+  // Always call hooks at the top level, before any conditional statements
+  const { publicKey, connected } = useWalletData(); // Use your custom hook instead of useWallet
+  const [mounted, setMounted] = useState(false);
+  
+  // Set mounted to true when component mounts on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  if (!wallet) {
-    return (
-      <Button asChild variant="default" className="bg-primary-gradient text-text-plum hover-scale">
-        <Link href="/wallet-connect" className="flex items-center gap-2">
-          <Wallet className="h-4 w-4" />
-          Connect Wallet
-        </Link>
-      </Button>
-    )
-  }
+  // Only access and format publicKey after component is mounted
+  const displayAddress = mounted ? formatWalletAddress(publicKey) : "";
 
-  const copyAddress = () => {
-    navigator.clipboard.writeText(wallet.address)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleRefreshBalance = async () => {
-    setRefreshing(true)
-    await refreshBalance()
-    setTimeout(() => setRefreshing(false), 1000)
+  // Don't render anything on server-side or during initial client render
+  if (!mounted) {
+    return <div className="h-10 w-[120px]"></div>; // Placeholder with similar dimensions
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2 hover-scale">
-          <div className="h-2 w-2 rounded-full bg-accent-green animate-pulse" />
-          <span className="font-mono">{shortenAddress(wallet.address)}</span>
-          <span className="hidden md:inline-block font-mono">{formatSOL(wallet.balance)}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground">Connected with {wallet.provider}</span>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="font-mono text-sm">{shortenAddress(wallet.address)}</span>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyAddress} aria-label="Copy address">
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              </Button>
-            </div>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="flex justify-between" onClick={handleRefreshBalance}>
-          <span>Balance</span>
-          <span className="flex items-center gap-1 font-mono">
-            {formatSOL(wallet.balance)}
-            <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard" className="cursor-pointer">
-            Dashboard
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/profile" className="cursor-pointer">
-            Profile
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-accent-coral focus:text-accent-coral" onClick={disconnect}>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Disconnect</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+    <div className="relative z-10">
+      <WalletMultiButton 
+        className="wallet-adapter-button-custom" 
+      />
+      <style jsx global>{`
+        .wallet-adapter-button-custom {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          color: #FFF !important;
+          border-radius: 0.5rem !important;
+          height: 40px !important;
+          padding: 0 1rem !important;
+          font-family: inherit !important;
+          font-size: 0.875rem !important;
+          font-weight: 500 !important;
+          transition: all 0.2s !important;
+        }
+        
+        .wallet-adapter-button-custom:hover {
+          background-color: rgba(255, 255, 255, 0.15) !important;
+          border-color: var(--primary-yellow) !important;
+        }
+        
+        .wallet-adapter-modal-wrapper {
+          background-color: #1e1e24 !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          border-radius: 1rem !important;
+        }
+        
+        .wallet-adapter-modal-title {
+          color: #fff !important;
+        }
+        
+        .wallet-adapter-modal-list {
+          margin: 1rem 0 !important;
+        }
+        
+        .wallet-adapter-modal-list-more {
+          color: var(--primary-yellow) !important;
+        }
+      `}</style>
+    </div>
+  );
 }

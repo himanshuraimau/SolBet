@@ -1,127 +1,114 @@
 "use client"
 
-import { useWallet } from "@/providers/wallet-provider"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { formatSOL } from "@/lib/utils"
+import { formatWalletAddress, getWalletInitial } from "@/lib/wallet"
+import { useWalletData } from "@/store/wallet-store"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { formatSOL, shortenAddress } from "@/lib/utils"
-import { Copy, Check, ExternalLink, Edit, LogOut } from "lucide-react"
-import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Edit, LogOut } from "lucide-react"
 import Link from "next/link"
+// Import the WalletBadge component instead of WalletMultiButton
+import WalletBadge from "@/components/wallet/wallet-badge"
 
 export default function ProfilePage() {
-  const { wallet, disconnect } = useWallet()
+  const { publicKey, connected, balance, refreshBalance, disconnect } = useWalletData();
   const [copied, setCopied] = useState(false)
 
-  if (!wallet) {
+  // Load wallet data when component mounts or wallet changes
+  useEffect(() => {
+    if (connected && publicKey) {
+      refreshBalance();
+    }
+  }, [connected, publicKey, refreshBalance]);
+
+  // Mock profile data for demonstration
+  const profile = {
+    displayName: "Crypto Wizard",
+    joinedDate: "January 2023",
+    totalBets: 34,
+    activeBets: 5,
+    winRate: "62%",
+  };
+
+  if (!connected || !publicKey) {
+    // Show connect wallet UI using our custom WalletBadge component
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="mb-4">Connect your wallet to view your profile</p>
-              <Button asChild className="bg-primary-gradient text-text-plum">
-                <Link href="/wallet-connect">Connect Wallet</Link>
-              </Button>
+      <div className="container py-10">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h2 className="text-xl font-semibold mb-4">Connect your wallet to view your profile</h2>
+            <div className="flex justify-center">
+              <WalletBadge />
             </div>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   const copyAddress = () => {
-    navigator.clipboard.writeText(wallet.address)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  // Mock user profile data
-  const profile = {
-    displayName: "Solana Enthusiast",
-    stats: {
-      betsCreated: 12,
-      betsJoined: 28,
-      winRate: 64,
-      totalWinnings: 342.5,
-    },
-    preferences: {
-      theme: "dark" as const,
-      notifications: true,
-    },
+    if (publicKey) {
+      navigator.clipboard.writeText(publicKey.toBase58())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>User Profile</CardTitle>
-              <CardDescription>Your personal information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col items-center">
-                <Avatar className="h-24 w-24 mb-4">
-                  <AvatarFallback className="bg-primary-gradient text-text-plum text-2xl">
-                    {wallet.address.substring(0, 1)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-xl font-medium">{profile.displayName}</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="font-mono text-sm">{shortenAddress(wallet.address)}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={copyAddress}
-                    aria-label="Copy address"
-                  >
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                    <a
-                      href={`https://explorer.solana.com/address/${wallet.address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </Button>
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">Connected with {wallet.provider}</div>
+    <div className="container py-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Profile sidebar */}
+        <Card className="md:col-span-1">
+          <CardContent className="p-6 text-center">
+            <Avatar className="h-24 w-24 mb-4 mx-auto">
+              <AvatarFallback className="bg-primary-gradient text-text-plum text-2xl">
+                {getWalletInitial(publicKey)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="text-xl font-medium">{profile.displayName}</div>
+            <div className="text-sm text-muted-foreground mb-6">
+              {formatWalletAddress(publicKey)}
+            </div>
+            
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-sm text-muted-foreground">Joined</div>
+                <div className="text-lg font-medium mt-1">{profile.joinedDate}</div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <div className="text-sm text-muted-foreground">Balance</div>
-                  <div className="text-lg font-mono font-medium mt-1">{formatSOL(wallet.balance)}</div>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <div className="text-sm text-muted-foreground">Win Rate</div>
-                  <div className="text-lg font-medium mt-1">{profile.stats.winRate}%</div>
-                </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-sm text-muted-foreground">Balance</div>
+                <div className="text-lg font-mono font-medium mt-1">{formatSOL(balance)}</div>
               </div>
-
-              <div className="flex flex-col gap-2">
-                <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link href="/settings">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Profile
-                  </Link>
-                </Button>
-                <Button variant="outline" className="w-full justify-start text-accent-coral" onClick={disconnect}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Disconnect Wallet
-                </Button>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-sm text-muted-foreground">Win Rate</div>
+                <div className="text-lg font-medium mt-1">{profile.winRate}</div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-sm text-muted-foreground">Total Bets</div>
+                <div className="text-lg font-medium mt-1">{profile.totalBets}</div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link href="/settings">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Profile
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full justify-start text-accent-coral" onClick={disconnect}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Disconnect Wallet
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Main content area */}
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
@@ -174,5 +161,5 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

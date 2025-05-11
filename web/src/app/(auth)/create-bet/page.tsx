@@ -1,10 +1,9 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useWallet } from "@/providers/wallet-provider"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { useWalletData } from "@/store/wallet-store"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,7 +31,8 @@ const categories: { value: BetCategory; label: string }[] = [
 ]
 
 export default function CreateBetPage() {
-  const { wallet } = useWallet()
+  const { publicKey, connected } = useWallet()
+  const { balance } = useWalletData()
   const router = useRouter()
   const createBetMutation = useCreateBet()
 
@@ -47,19 +47,22 @@ export default function CreateBetPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  if (!wallet) {
+  // Redirect if wallet not connected
+  if (!connected || !publicKey) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="mb-4">Connect your wallet to create a bet</p>
-              <Button className="bg-primary-gradient text-text-plum" onClick={() => router.push("/wallet-connect")}>
-                Connect Wallet
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="container py-10">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-card p-8 rounded-lg text-center">
+            <h2 className="text-xl font-semibold mb-4">Connect your wallet to create a bet</h2>
+            {/* You can add WalletMultiButton here if needed */}
+            <button 
+              className="btn-primary mt-4"
+              onClick={() => router.push("/")}
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -97,7 +100,7 @@ export default function CreateBetPage() {
         minimumBet,
         maximumBet,
         endTime: endDate,
-        creator: wallet.address,
+        creator: publicKey.toString(),
       })
 
       setSuccess(true)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -74,6 +74,17 @@ const FEATURED_BETS: Bet[] = [
 ]
 
 const CATEGORIES: BetCategory[] = ["crypto", "sports", "politics", "entertainment", "weather", "other"]
+
+function useStableRandomValue(min: number, max: number) {
+  const [value, setValue] = useState(min);
+  
+  useEffect(() => {
+    // Generate random value only on the client side
+    setValue(Math.floor(Math.random() * (max - min)) + min);
+  }, [min, max]);
+  
+  return value;
+}
 
 export default function FeaturedBets() {
   const [activeCategory, setActiveCategory] = useState<BetCategory | "all">("all")
@@ -153,7 +164,7 @@ export default function FeaturedBets() {
                         </div>
                         <div className="flex items-center">
                           <Users className="mr-1 h-4 w-4 text-accent-blue" />
-                          <span>{Math.floor(Math.random() * 100) + 20} participants</span>
+                          <span>{useStableRandomValue(20, 100)} participants</span>
                         </div>
                       </div>
                     </div>

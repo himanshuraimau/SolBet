@@ -1,110 +1,46 @@
-"use client"
+"use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import type { WalletInfo, WalletTransaction } from "@/types/wallet"
-import { mockWalletInfo, mockTransactions } from "@/lib/mockData"
+import { FC, ReactNode, useMemo, useEffect, useState } from "react";
+import { 
+  ConnectionProvider,
+  WalletProvider as SolanaWalletProvider
+} from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { clusterApiUrl, Cluster } from "@solana/web3.js";
 
-interface WalletContextType {
-  wallet: WalletInfo | null
-  connecting: boolean
-  transactions: WalletTransaction[]
-  connect: (provider: string) => Promise<void>
-  disconnect: () => void
-  refreshBalance: () => Promise<void>
+// Import wallet adapter styles
+import "@solana/wallet-adapter-react-ui/styles.css";
+
+interface WalletProviderProps {
+  children: ReactNode;
 }
 
-const WalletContext = createContext<WalletContextType | undefined>(undefined)
+export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
+  // You can customize the RPC endpoint based on your environment
+  const endpoint = useMemo(() => clusterApiUrl((process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet") as Cluster), []);
+  
+  // Empty wallets array will use all available adapters
+  // For production, import specific wallets from @solana/wallet-adapter-wallets
+  const wallets = useMemo(() => [], []);
 
-export function WalletProvider({ children }: { children: ReactNode }) {
-  const [wallet, setWallet] = useState<WalletInfo | null>(null)
-  const [connecting, setConnecting] = useState(false)
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([])
-
-  // Check for existing connection on mount
+  // Ensure we're only rendering on the client side
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    const savedWallet = localStorage.getItem("solbet-wallet")
-    if (savedWallet) {
-      try {
-        const parsedWallet = JSON.parse(savedWallet)
-        setWallet(parsedWallet)
-        // Load transactions for this wallet
-        loadTransactions()
-      } catch (error) {
-        console.error("Failed to parse saved wallet", error)
-        localStorage.removeItem("solbet-wallet")
-      }
-    }
-  }, [])
+    setMounted(true);
+  }, []);
 
-  const loadTransactions = async () => {
-    // Use mock transactions data
-    setTransactions(mockTransactions)
-  }
-
-  const connect = async (provider: string) => {
-    setConnecting(true)
-    try {
-      // Simulate connection delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Use mock wallet info
-      const connectedWallet = {
-        ...mockWalletInfo,
-        provider: provider as any,
-      }
-
-      setWallet(connectedWallet)
-      localStorage.setItem("solbet-wallet", JSON.stringify(connectedWallet))
-      loadTransactions()
-    } catch (error) {
-      console.error("Failed to connect wallet", error)
-    } finally {
-      setConnecting(false)
-    }
-  }
-
-  const disconnect = () => {
-    setWallet(null)
-    setTransactions([])
-    localStorage.removeItem("solbet-wallet")
-  }
-
-  const refreshBalance = async () => {
-    if (!wallet) return
-
-    // Simulate balance update delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    const updatedWallet = {
-      ...wallet,
-      balance: wallet.balance + (Math.random() * 2 - 1), // Random change between -1 and 1
-    }
-
-    setWallet(updatedWallet)
-    localStorage.setItem("solbet-wallet", JSON.stringify(updatedWallet))
-    return updatedWallet.balance
-  }
+  // Return null during SSR and initial render
+  if (!mounted) return <>{children}</>;
 
   return (
-    <WalletContext.Provider
-      value={{
-        wallet,
-        connecting,
-        transactions,
-        connect,
-        disconnect,
-        refreshBalance,
-      }}
-    >
-      {children}
-    </WalletContext.Provider>
-  )
-}
+    <ConnectionProvider endpoint={endpoint}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          {children}
+        </WalletModalProvider>
+      </SolanaWalletProvider>
+    </ConnectionProvider>
+  );
+};
 
-export function useWallet() {
-  const context = useContext(WalletContext)
-  if (context === undefined) {
-    throw new Error("useWallet must be used within a WalletProvider")
-  }
-  return context
-}
+export { useWallet } from "@solana/wallet-adapter-react";

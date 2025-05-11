@@ -1,7 +1,11 @@
 "use client"
 
-import { useWallet } from "@/providers/wallet-provider"
-import { formatSOL, shortenAddress } from "@/lib/utils"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
+import { useEffect } from "react"
+import { formatSOL } from "@/lib/utils"
+import { formatWalletAddress, getWalletInitial } from "@/lib/wallet"
+import { useWalletData, useWalletStore } from "@/store/wallet-store" 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Copy, Check, RefreshCw, ExternalLink } from "lucide-react"
@@ -9,35 +13,39 @@ import { useState } from "react"
 import Link from "next/link"
 
 export default function UserHeader() {
-  const { wallet, refreshBalance } = useWallet()
-  const [copied, setCopied] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
+  const { publicKey, connected } = useWallet();
+  const { balance, isLoading, refreshBalance } = useWalletData();
+  const [copied, setCopied] = useState(false);
 
-  if (!wallet) {
+  // Load balance when wallet is connected
+  useEffect(() => {
+    if (connected && publicKey) {
+      refreshBalance();
+    } else {
+      // Clear wallet data when disconnected
+      useWalletStore.getState().clearWalletData();
+    }
+  }, [connected, publicKey]);
+
+  if (!connected || !publicKey) {
     return (
       <Card>
         <CardContent className="p-6">
           <div className="text-center">
             <p className="mb-4">Connect your wallet to view your dashboard</p>
-            <Button asChild className="bg-primary-gradient text-text-plum">
-              <Link href="/wallet-connect">Connect Wallet</Link>
-            </Button>
+            <WalletMultiButton className="wallet-adapter-button-custom bg-primary-gradient text-text-plum" />
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
+
+  const walletAddress = publicKey.toString()
 
   const copyAddress = () => {
-    navigator.clipboard.writeText(wallet.address)
+    navigator.clipboard.writeText(walletAddress)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleRefreshBalance = async () => {
-    setRefreshing(true)
-    await refreshBalance()
-    setTimeout(() => setRefreshing(false), 1000)
   }
 
   // Mock user stats
@@ -55,11 +63,11 @@ export default function UserHeader() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 rounded-full bg-primary-gradient flex items-center justify-center text-text-plum font-bold">
-                {wallet.address.substring(0, 1)}
+                {getWalletInitial(publicKey)}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-medium">{shortenAddress(wallet.address)}</span>
+                  <span className="font-mono font-medium">{formatWalletAddress(publicKey)}</span>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -75,7 +83,7 @@ export default function UserHeader() {
                     asChild
                   >
                     <a
-                      href={`https://explorer.solana.com/address/${wallet.address}`}
+                      href={`https://explorer.solana.com/address/${walletAddress}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -83,19 +91,19 @@ export default function UserHeader() {
                     </a>
                   </Button>
                 </div>
-                <div className="text-sm text-text-pearl/80">Connected with {wallet.provider}</div>
+                <div className="text-sm text-text-pearl/80">Connected Wallet</div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="text-2xl font-mono font-bold">{formatSOL(wallet.balance)}</div>
+              <div className="text-2xl font-mono font-bold">{formatSOL(balance)}</div>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-text-pearl/80 hover:text-text-pearl hover:bg-white/10"
-                onClick={handleRefreshBalance}
+                onClick={refreshBalance}
               >
-                <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </div>
