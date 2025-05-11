@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadialBarChart, RadialBar, ResponsiveContainer, Tooltip, type TooltipProps, Legend } from "recharts"
+import { useBetStatistics } from "@/lib/query/hooks/use-user-data"
 
 interface WinProbabilityProps {
   yesPercentage: number
@@ -9,8 +10,20 @@ interface WinProbabilityProps {
   className?: string
 }
 
-export default function WinProbability({ yesPercentage, noPercentage, className }: WinProbabilityProps) {
-  const data = [
+export default function WinProbability({ className }: WinProbabilityProps) {
+  // Fetch real data from API
+  const { data, isLoading } = useBetStatistics();
+  
+  // Calculate percentages based on real data
+  let yesPercentage = 50;
+  let noPercentage = 50;
+  
+  if (data && data.totalBets > 0) {
+    yesPercentage = (data.yesBets / data.totalBets) * 100;
+    noPercentage = (data.noBets / data.totalBets) * 100;
+  }
+
+  const chartData = [
     {
       name: "No",
       value: noPercentage,
@@ -30,30 +43,36 @@ export default function WinProbability({ yesPercentage, noPercentage, className 
         <CardDescription>Current odds for Yes and No positions</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="20%"
-              outerRadius="80%"
-              barSize={20}
-              data={data}
-              startAngle={180}
-              endAngle={0}
-            >
-              <RadialBar label={{ fill: "var(--foreground)", position: "insideStart" }} background dataKey="value" />
-              <Legend
-                iconSize={10}
-                layout="vertical"
-                verticalAlign="middle"
-                align="right"
-                wrapperStyle={{ paddingLeft: "10px" }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-            </RadialBarChart>
-          </ResponsiveContainer>
-        </div>
+        {isLoading ? (
+          <div className="h-[250px] flex items-center justify-center">
+            <div className="animate-pulse text-muted-foreground">Loading chart data...</div>
+          </div>
+        ) : (
+          <div className="h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart
+                cx="50%"
+                cy="50%"
+                innerRadius="20%"
+                outerRadius="80%"
+                barSize={20}
+                data={chartData}
+                startAngle={180}
+                endAngle={0}
+              >
+                <RadialBar label={{ fill: "var(--foreground)", position: "insideStart" }} background dataKey="value" />
+                <Legend
+                  iconSize={10}
+                  layout="vertical"
+                  verticalAlign="middle"
+                  align="right"
+                  wrapperStyle={{ paddingLeft: "10px" }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+              </RadialBarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4 mt-4">
           <div className="bg-accent-green/10 rounded-lg p-3 text-center">
             <div className="text-sm text-accent-green">Yes Probability</div>

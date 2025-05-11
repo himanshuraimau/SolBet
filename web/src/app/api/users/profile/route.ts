@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       walletAddress: user.walletAddress,
       displayName: user.displayName || undefined,
       avatar: user.avatar || undefined,
+      createdAt: user.createdAt, // Include createdAt field
       stats: {
         betsCreated: user.betsCreated,
         betsJoined: user.betsJoined,

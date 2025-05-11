@@ -11,7 +11,7 @@ import ActivityFeed from "@/components/dashboard/activity-feed"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus } from "lucide-react"
 import Link from "next/link"
-import BetHistoryChart from "@/components/charts/bet-history-chart"
+import { BetHistoryChart } from "@/components/charts/bet-history-chart" // Changed from default to named import
 import FadeIn from "@/components/motion/fade-in"
 
 export default function DashboardPage() {

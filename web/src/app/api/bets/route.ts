@@ -118,31 +118,102 @@ export async function POST(request: NextRequest) {
 // Add GET handler to retrieve bets with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get('category');
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '12');
+    const walletAddress = searchParams.get('wallet');
+    const tab = searchParams.get('tab') || 'all';
     
-    // Parse query parameters
-    const category = searchParams.get("category");
-    const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
-    
-    // Calculate pagination
     const skip = (page - 1) * limit;
     
-    // Build the query filter
-    const filter: any = {};
-    if (category) filter.category = category;
-    if (status) filter.status = status;
+    // Build the where clause based on filters
+    const where: any = {};
     
-    // Get total count for pagination
-    const totalCount = await prisma.bet.count({
-      where: filter
-    });
+    if (category) {
+      where.category = category;
+    }
     
-    // Fetch bets with pagination
+    if (status) {
+      where.status = status;
+    }
+    
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    
+    // Handle different tabs
+    if (tab === 'ending-soon') {
+      where.endTime = {
+        gt: new Date(),
+      };
+      where.status = 'active';
+    } else if (tab === 'trending') {
+      // For trending, we'll sort by total pool size
+      where.status = 'active';
+    } else if (tab === 'my-bets' && walletAddress) {
+      // Find user by wallet address
+      const user = await prisma.user.findUnique({
+        where: { walletAddress },
+        select: { id: true },
+      });
+      
+      if (user) {
+        // For My Bets tab, get bets where the user has participated
+        const userBets = await prisma.userBet.findMany({
+          where: { userId: user.id },
+          select: { betId: true },
+        });
+        
+        where.OR = [
+          { id: { in: userBets.map(bet => bet.betId) } },
+          { creatorId: user.id }
+        ];
+      } else {
+        // If user not found, return empty result
+        return NextResponse.json({
+          bets: [],
+          pagination: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          }
+        });
+      }
+    }
+    
+    // Count total bets matching the criteria
+    const total = await prisma.bet.count({ where });
+    
+    // Get the bets with sorting options
+    let orderBy: any = {};
+    
+    if (tab === 'trending') {
+      // Sort by total pool size for trending
+      orderBy = {
+        yesPool: 'desc',
+      };
+    } else if (tab === 'ending-soon') {
+      // Sort by end time (soonest first) for ending soon
+      orderBy = {
+        endTime: 'asc',
+      };
+    } else {
+      // Default sort by creation date (newest first)
+      orderBy = {
+        createdAt: 'desc',
+      };
+    }
+    
     const bets = await prisma.bet.findMany({
-      where: filter,
-      orderBy: { createdAt: "desc" },
+      where,
+      orderBy,
       skip,
       take: limit,
       include: {
@@ -150,21 +221,15 @@ export async function GET(request: NextRequest) {
           select: {
             walletAddress: true,
             displayName: true,
-          }
+          },
         },
-        participants: {
-          include: {
-            user: {
-              select: {
-                walletAddress: true,
-              }
-            }
-          }
+        _count: {
+          select: { participants: true },
         },
-      }
+      },
     });
     
-    // Format the response
+    // Format the bets
     const formattedBets = bets.map(bet => ({
       id: bet.id,
       title: bet.title,
@@ -174,32 +239,32 @@ export async function GET(request: NextRequest) {
       creatorName: bet.creator.displayName,
       yesPool: bet.yesPool,
       noPool: bet.noPool,
+      totalPool: bet.yesPool + bet.noPool,
       minimumBet: bet.minimumBet,
       maximumBet: bet.maximumBet,
       startTime: bet.startTime,
       endTime: bet.endTime,
       status: bet.status,
-      participants: bet.participants.map(p => ({
-        walletAddress: p.user.walletAddress,
-        position: p.position,
-        amount: p.amount,
-        timestamp: p.timestamp,
-      })),
+      participantCount: bet._count.participants,
+      daysLeft: Math.max(0, Math.ceil((new Date(bet.endTime).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))),
     }));
     
-    // Calculate total pages
-    const totalPages = Math.ceil(totalCount / limit);
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit);
     
     return NextResponse.json({
       bets: formattedBets,
-      totalPages,
-      currentPage: page,
-      totalBets: totalCount,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      }
     });
   } catch (error) {
-    console.error("Error fetching bets:", error);
+    console.error('Error fetching bets:', error);
     return NextResponse.json(
-      { error: "Failed to fetch bets" },
+      { error: 'Failed to fetch bets' },
       { status: 500 }
     );
   }

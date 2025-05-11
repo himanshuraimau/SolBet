@@ -17,6 +17,7 @@ export async function getUserByWalletAddress(walletAddress: string): Promise<Use
     walletAddress: user.walletAddress,
     displayName: user.displayName || undefined,
     avatar: user.avatar || undefined,
+    createdAt: user.createdAt, // Include createdAt field
     stats: {
       betsCreated: user.betsCreated,
       betsJoined: user.betsJoined,
@@ -42,6 +43,7 @@ export async function createUser(walletAddress: string, displayName?: string): P
     walletAddress: user.walletAddress,
     displayName: user.displayName || undefined,
     avatar: user.avatar || undefined,
+    createdAt: user.createdAt, // Include createdAt field
     stats: {
       betsCreated: user.betsCreated,
       betsJoined: user.betsJoined,

@@ -6,13 +6,14 @@ interface PlaceBetRequest {
   betId: string;
   position: "yes" | "no";
   amount: number;
+  onChainTxId?: string; // Optional on-chain transaction ID
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Parse the request body
     const body: PlaceBetRequest = await request.json();
-    const { walletAddress, betId, position, amount } = body;
+    const { walletAddress, betId, position, amount, onChainTxId } = body;
     
     // Validate required fields
     if (!walletAddress || !betId || !position || !amount) {
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
         amount,
         userId: user.id,
         betId: bet.id,
+        onChainTxId, // Store the on-chain transaction ID if provided
       },
     });
 
@@ -122,6 +124,7 @@ export async function POST(request: NextRequest) {
         status: "confirmed",
         userId: user.id,
         betId: bet.id,
+        txHash: onChainTxId, // Store the on-chain transaction ID
       },
     });
 

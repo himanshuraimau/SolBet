@@ -7,14 +7,31 @@ import {
   LAMPORTS_PER_SOL,
   Keypair
 } from '@solana/web3.js';
-import { BorshCoder, Idl } from '@project-serum/anchor';
 import { Buffer } from 'buffer';
 
 // Program ID for the SolBet smart contract on devnet
-export const PROGRAM_ID = new PublicKey('PUT_YOUR_ACTUAL_PROGRAM_ID_HERE');
+export const PROGRAM_ID = process.env.NEXT_PUBLIC_PROGRAM_ID || 'YourProgramIdHere';
 
 // Devnet connection
 export const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+
+// Helper function to validate a base58 string
+function isValidBase58(str: string): boolean {
+  try {
+    new PublicKey(str);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Helper function to safely create a PublicKey
+function createSafePubkey(address: string): PublicKey {
+  if (!isValidBase58(address)) {
+    throw new Error(`Invalid Solana address: ${address}. Must be a valid base58 string.`);
+  }
+  return new PublicKey(address);
+}
 
 // Initialize a bet
 export async function initializeBet(
@@ -92,7 +109,15 @@ export async function placeBet(
   try {
     if (!wallet.publicKey) throw new Error("Wallet not connected");
     
-    // Convert string addresses to PublicKey
+    // Validate and convert string addresses to PublicKey with better error handling
+    if (!betAccount || !isValidBase58(betAccount)) {
+      throw new Error(`Invalid bet account: ${betAccount}. Must be a valid base58 string.`);
+    }
+    
+    if (!escrowAccount || !isValidBase58(escrowAccount)) {
+      throw new Error(`Invalid escrow account: ${escrowAccount}. Must be a valid base58 string.`);
+    }
+    
     const betAccountPubkey = new PublicKey(betAccount);
     const escrowAccountPubkey = new PublicKey(escrowAccount);
     

@@ -1,168 +1,106 @@
 "use client"
 
+import { useBetHistory } from "@/lib/query/hooks/use-user-data"
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatSOL } from "@/lib/utils"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
+import { Skeleton } from "../ui/skeleton"
 import type { TimeFrame } from "@/types/common"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, type TooltipProps } from "recharts"
-import { format } from "date-fns"
 
-// Mock data
-const generateMockData = (timeFrame: TimeFrame) => {
-  const now = new Date()
-  const data = []
-
-  let days = 0
-  switch (timeFrame) {
-    case "1d":
-      days = 1
-      break
-    case "7d":
-      days = 7
-      break
-    case "30d":
-      days = 30
-      break
-    case "all":
-      days = 90
-      break
-  }
-
-  const points = timeFrame === "1d" ? 24 : days // Hourly for 1d, daily for others
-  const interval = timeFrame === "1d" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000 // Milliseconds
-
-  let cumulativeWinnings = 0
-  let previousValue = 100 // Starting balance
-
-  for (let i = 0; i < points; i++) {
-    const date = new Date(now.getTime() - (points - i) * interval)
-
-    // Generate some random movement
-    const change = Math.random() * 20 - 10 // Random value between -10 and 10
-    const newValue = Math.max(0, previousValue + change)
-    previousValue = newValue
-
-    cumulativeWinnings += change
-
-    data.push({
-      date,
-      balance: newValue,
-      winnings: cumulativeWinnings,
-    })
-  }
-
-  return data
-}
-
-interface BetHistoryChartProps {
-  className?: string
-}
-
-export default function BetHistoryChart({ className }: BetHistoryChartProps) {
+export function BetHistoryChart() {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("7d")
-  const data = generateMockData(timeFrame)
+  const { data, isLoading } = useBetHistory(timeFrame)
 
-  return (
-    <Card className={className}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Betting Performance</CardTitle>
-            <CardDescription>Track your betting history over time</CardDescription>
-          </div>
-          <Tabs value={timeFrame} onValueChange={(v) => setTimeFrame(v as TimeFrame)}>
-            <TabsList className="bg-muted/50">
-              <TabsTrigger value="1d" className="text-xs">
-                1D
-              </TabsTrigger>
-              <TabsTrigger value="7d" className="text-xs">
-                7D
-              </TabsTrigger>
-              <TabsTrigger value="30d" className="text-xs">
-                30D
-              </TabsTrigger>
-              <TabsTrigger value="all" className="text-xs">
-                All
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={data}
-              margin={{
-                top: 5,
-                right: 10,
-                left: 10,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(date) => {
-                  if (timeFrame === "1d") {
-                    return format(new Date(date), "HH:mm")
-                  }
-                  return format(new Date(date), "MMM dd")
-                }}
-                stroke="var(--muted-foreground)"
-                fontSize={12}
-              />
-              <YAxis tickFormatter={(value) => `${value} SOL`} stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="balance"
-                stroke="var(--primary-yellow)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6, fill: "var(--primary-yellow)" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="winnings"
-                stroke="var(--secondary-violet)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6, fill: "var(--secondary-violet)" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex justify-center mt-4 space-x-6">
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-primary-yellow mr-2" />
-            <span className="text-sm text-muted-foreground">Balance</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-secondary-violet mr-2" />
-            <span className="text-sm text-muted-foreground">Cumulative Winnings</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+  const handleTimeFrameChange = (value: string) => {
+    setTimeFrame(value as TimeFrame)
+  }
 
-const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-  if (active && payload && payload.length) {
+  if (isLoading) {
     return (
-      <div className="bg-background border rounded-md shadow-md p-3">
-        <p className="text-sm font-medium">{format(new Date(label), "MMM dd, yyyy HH:mm")}</p>
-        <p className="text-sm text-muted-foreground">
-          Balance: <span className="font-mono text-primary-yellow">{formatSOL(payload[0].value as number)}</span>
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Winnings: <span className="font-mono text-secondary-violet">{formatSOL(payload[1].value as number)}</span>
-        </p>
-      </div>
+      <Card className="col-span-2">
+        <CardHeader>
+          <CardTitle>Betting Activity</CardTitle>
+          <CardDescription>Your betting activity over time</CardDescription>
+        </CardHeader>
+        <CardContent className="h-80">
+          <Skeleton className="h-full w-full" />
+        </CardContent>
+      </Card>
     )
   }
 
-  return null
+  // Group bets by date and count them
+  const aggregatedData = data.history.reduce((acc, bet) => {
+    const date = new Date(bet.timestamp)
+    let dateKey: string
+    
+    if (timeFrame === "1d") {
+      // Group by hour for 1d
+      dateKey = `${date.getHours()}:00`
+    } else if (timeFrame === "7d") {
+      // Group by day for 7d
+      dateKey = date.toLocaleDateString('en-US', { weekday: 'short' })
+    } else if (timeFrame === "30d") {
+      // Group by week for 30d
+      const day = date.getDate()
+      const weekNumber = Math.floor((day - 1) / 7) + 1
+      dateKey = `Week ${weekNumber}`
+    } else {
+      // Group by month for all
+      dateKey = date.toLocaleDateString('en-US', { month: 'short' })
+    }
+    
+    if (!acc[dateKey]) {
+      acc[dateKey] = { name: dateKey, wins: 0, losses: 0 }
+    }
+    
+    if (bet.type === "WIN") {
+      acc[dateKey].wins++
+    } else if (bet.type === "LOSS") {
+      acc[dateKey].losses++
+    }
+    
+    return acc
+  }, {} as Record<string, { name: string; wins: number; losses: number }>)
+
+  const chartData = Object.values(aggregatedData)
+
+  return (
+    <Card className="col-span-2">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle>Betting Activity</CardTitle>
+          <CardDescription>Your betting activity over time</CardDescription>
+        </div>
+        <Tabs value={timeFrame} onValueChange={handleTimeFrameChange}>
+          <TabsList>
+            <TabsTrigger value="1d">Day</TabsTrigger>
+            <TabsTrigger value="7d">Week</TabsTrigger>
+            <TabsTrigger value="30d">Month</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </CardHeader>
+      <CardContent className="h-80">
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="wins" stackId="a" fill="#10b981" name="Wins" />
+              <Bar dataKey="losses" stackId="a" fill="#ef4444" name="Losses" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-muted-foreground">No betting activity during this period</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }

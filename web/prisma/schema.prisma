@@ -57,6 +57,10 @@ model Bet {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   
+  // Solana blockchain references
+  onChainBetAddress  String?    // Reference to bet account on Solana
+  onChainEscrowAddress String?  // Reference to escrow account on Solana
+  
   // Relations
   creatorId   String
   creator     User        @relation("CreatedBets", fields: [creatorId], references: [id])
@@ -65,6 +69,7 @@ model Bet {
   @@index([creatorId])
   @@index([category])
   @@index([status])
+  @@index([onChainBetAddress])
 }
 
 // UserBet tracks a user's participation in a bet
@@ -74,6 +79,7 @@ model UserBet {
   amount      Float
   timestamp   DateTime    @default(now())
   claimed     Boolean     @default(false)
+  onChainTxId String?     // Transaction ID on Solana blockchain
   
   // Relations
   userId      String
@@ -93,6 +99,7 @@ model Transaction {
   type        String      // "bet", "deposit", "withdrawal", "winnings"
   status      String      // "pending", "confirmed", "failed"
   timestamp   DateTime    @default(now())
+  txHash      String?     // Transaction hash on blockchain
   
   // Relations
   userId      String

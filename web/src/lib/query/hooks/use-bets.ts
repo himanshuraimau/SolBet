@@ -1,6 +1,10 @@
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
 import { queryKeys } from "../config"
 import type { BetCategory, BetStatus } from "@/types/bet"
+import { useSolanaBet } from "@/hooks/bet/use-solana-bet";
+import { useToast } from "@/hooks/use-toast";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { Bet } from "@/types/bet";
 
 // Updated API functions
 const fetchBetsFromApi = async (category?: BetCategory, status?: BetStatus, page = 1, limit = 10) => {
@@ -34,13 +38,60 @@ export function useBets(category?: BetCategory, status?: BetStatus) {
 }
 
 // Hook to fetch a single bet by ID
-export function useBet(id: string) {
-  return useQuery({
-    queryKey: queryKeys.bets.detail(id),
-    queryFn: () => fetchBetByIdFromApi(id),
-    enabled: !!id,
-  })
-}
+export const useBet = (betId: string) => {
+  const { toast } = useToast();
+  const { publicKey } = useWallet();
+  const walletAddress = publicKey?.toString();
+
+  // Fetch bet data from the API
+  const {
+    data,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ["bet", betId],
+    queryFn: async () => {
+      const response = await fetch(`/api/bets/${betId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch bet");
+      }
+      
+      const data = await response.json();
+      return data as Bet;
+    },
+    enabled: !!betId,
+  });
+
+  // Also get Solana chain data for this bet
+  const { useBetData: useSolanaBetData } = useSolanaBet();
+  const { 
+    data: solanaBetData,
+    isLoading: isSolanaLoading,
+    error: solanaError
+  } = useSolanaBetData(betId);
+
+  // Check if the current user has already placed a bet
+  const hasUserParticipated = !!data?.participants.find(
+    (p) => p.walletAddress === walletAddress
+  );
+
+  const userPosition = data?.participants.find(
+    (p) => p.walletAddress === walletAddress
+  )?.position;
+
+  return {
+    data,
+    solanaBetData,
+    isLoading: isLoading || isSolanaLoading,
+    error: error || solanaError,
+    hasUserParticipated,
+    userPosition,
+    refetch,
+  };
+};
 
 // Hook for infinite scrolling of bets
 export function useInfiniteBets(category?: BetCategory, status?: BetStatus) {

@@ -1,117 +1,118 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatSOL } from "@/lib/utils"
-import type { TimeFrame } from "@/types/common"
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  type TooltipProps,
   Legend,
+  type TooltipProps,
 } from "recharts"
-
-// Mock data
-const generateMockData = (timeFrame: TimeFrame) => {
-  const data = []
-
-  let categories: string[]
-
-  switch (timeFrame) {
-    case "1d":
-      categories = ["Morning", "Afternoon", "Evening", "Night"]
-      break
-    case "7d":
-      categories = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-      break
-    case "30d":
-      categories = ["Week 1", "Week 2", "Week 3", "Week 4"]
-      break
-    case "all":
-      categories = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-      break
-    default:
-      categories = ["Week 1", "Week 2", "Week 3", "Week 4"]
-  }
-
-  for (const category of categories) {
-    const wins = Math.random() * 20 + 5
-    const losses = Math.random() * 15 + 2
-
-    data.push({
-      name: category,
-      wins,
-      losses,
-      net: wins - losses,
-    })
-  }
-
-  return data
-}
+import { usePortfolioPerformance } from "@/lib/query/hooks/use-user-data"
+import type { TimeFrame } from "@/types/common"
 
 interface PortfolioPerformanceProps {
+  timeFrame: TimeFrame
   className?: string
 }
 
-export default function PortfolioPerformance({ className }: PortfolioPerformanceProps) {
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("7d")
-  const data = generateMockData(timeFrame)
-
+export default function PortfolioPerformance({ timeFrame, className }: PortfolioPerformanceProps) {
+  // Fetch real data from API
+  const { data, isLoading } = usePortfolioPerformance(timeFrame)
+  
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Portfolio Performance</CardTitle>
-            <CardDescription>Wins and losses over time</CardDescription>
-          </div>
-          <Tabs value={timeFrame} onValueChange={(v) => setTimeFrame(v as TimeFrame)}>
-            <TabsList className="bg-muted/50">
-              <TabsTrigger value="1d" className="text-xs">
-                1D
-              </TabsTrigger>
-              <TabsTrigger value="7d" className="text-xs">
-                7D
-              </TabsTrigger>
-              <TabsTrigger value="30d" className="text-xs">
-                30D
-              </TabsTrigger>
-              <TabsTrigger value="all" className="text-xs">
-                All
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div>
+          <CardTitle>Portfolio Performance</CardTitle>
+          <CardDescription>Track your betting ROI over time</CardDescription>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              margin={{
-                top: 5,
-                right: 10,
-                left: 10,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
-              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis tickFormatter={(value) => `${value} SOL`} stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="wins" name="Wins" fill="var(--accent-green)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="losses" name="Losses" fill="var(--accent-coral)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="net" name="Net Profit" fill="var(--primary-yellow)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {isLoading ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <div className="animate-pulse text-muted-foreground">Loading performance data...</div>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <div className="text-muted-foreground">No performance data available</div>
+          </div>
+        ) : (
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={data}
+                margin={{
+                  top: 5,
+                  right: 10,
+                  left: 10,
+                  bottom: 5,
+                }}
+              >
+                <defs>
+                  <linearGradient id="colorWins" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--accent-green)" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="var(--accent-green)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorLosses" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--accent-coral)" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="var(--accent-coral)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary-purple)" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="var(--primary-purple)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="var(--muted-foreground)" 
+                  fontSize={12}
+                  tickFormatter={(value) => {
+                    if (timeFrame === "all" || timeFrame === "30d") {
+                      // For longer timeframes, format date more concisely
+                      return value.split('-').slice(1).join('/');
+                    }
+                    // For 1d and 7d, keep date as is
+                    return value;
+                  }}
+                />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(value) => `${value} SOL`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="wins"
+                  name="Wins"
+                  stroke="var(--accent-green)"
+                  fillOpacity={1}
+                  fill="url(#colorWins)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="losses"
+                  name="Losses"
+                  stroke="var(--accent-coral)"
+                  fillOpacity={1}
+                  fill="url(#colorLosses)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="net"
+                  name="Net Profit"
+                  stroke="var(--primary-purple)"
+                  fillOpacity={1}
+                  fill="url(#colorNet)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -122,14 +123,14 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
     return (
       <div className="bg-background border rounded-md shadow-md p-3">
         <p className="text-sm font-medium">{label}</p>
-        <p className="text-sm text-muted-foreground">
-          Wins: <span className="font-mono text-accent-green">{formatSOL(payload[0].value as number)}</span>
+        <p className="text-sm text-accent-green">
+          Wins: <span className="font-mono">{formatSOL(payload[0].value as number)}</span>
         </p>
-        <p className="text-sm text-muted-foreground">
-          Losses: <span className="font-mono text-accent-coral">{formatSOL(payload[1].value as number)}</span>
+        <p className="text-sm text-accent-coral">
+          Losses: <span className="font-mono">{formatSOL(payload[1].value as number)}</span>
         </p>
-        <p className="text-sm text-muted-foreground">
-          Net Profit: <span className="font-mono text-primary-yellow">{formatSOL(payload[2].value as number)}</span>
+        <p className="text-sm text-primary-purple">
+          Net Profit: <span className="font-mono">{formatSOL(payload[2].value as number)}</span>
         </p>
       </div>
     )
