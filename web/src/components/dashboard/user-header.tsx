@@ -10,14 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import WalletBadge from "@/components/wallet/wallet-badge";
 
 export default function UserHeader() {
-  const { publicKey, connected, balance, refreshBalance, userProfile, isLoading } = useWalletData();
+  const { publicKey, connected, balance, refreshBalance, updateUserProfile, userProfile, isLoading } = useWalletData();
 
   // Refresh wallet data when component mounts or when wallet is connected
   useEffect(() => {
     if (connected && publicKey) {
       refreshBalance();
+      updateUserProfile();
     }
-  }, [connected, publicKey, refreshBalance]);
+  }, [connected, publicKey, refreshBalance, updateUserProfile]);
 
   if (!connected || !publicKey) {
     return (

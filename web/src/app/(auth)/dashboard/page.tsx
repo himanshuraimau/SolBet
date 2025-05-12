@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { useWalletData } from "@/store/wallet-store"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import UserHeader from "@/components/dashboard/user-header"

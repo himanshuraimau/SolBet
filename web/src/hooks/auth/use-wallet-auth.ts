@@ -10,13 +10,30 @@ import { UserProfile } from "@/types/user";
 export function useWalletAuth() {
   const { 
     userProfile, 
-    isProfileLoading, 
-    profileError 
+    isProfileLoading
   } = useWalletData();
 
+  // Convert wallet profile format to user profile format if needed
+  const adaptedProfile = userProfile ? {
+    walletAddress: userProfile.walletAddress,
+    displayName: userProfile.displayName,
+    avatar: userProfile.avatarUrl,
+    createdAt: userProfile.createdAt,
+    stats: userProfile.stats || {
+      betsCreated: 0,
+      betsJoined: 0,
+      winRate: 0,
+      totalWinnings: 0
+    },
+    preferences: {
+      theme: "dark" as const,
+      notifications: true
+    }
+  } : null;
+
   return {
-    user: userProfile,
+    user: adaptedProfile,
     isLoading: isProfileLoading,
-    error: profileError,
+    error: null,
   };
 }

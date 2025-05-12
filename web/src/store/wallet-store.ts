@@ -4,6 +4,7 @@ import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { useCallback, useEffect, useState } from 'react';
 import { WalletTransaction, UserProfile } from '@/types/wallet';
 import { fetchUserProfile, updateProfile, fetchWalletActivity } from '@/lib/api/user';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 interface WalletState {
   balance: number;
@@ -82,10 +83,9 @@ const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {
 
 // Custom hook to use wallet data with Solana wallet connection
 export function useWalletData() {
-  // First, call all React hooks to ensure consistent order
+  // Use the Solana wallet adapter hook instead of window.solana
+  const { publicKey, connected } = useWallet();
   const [mounted, setMounted] = useState(false);
-  const [publicKey, setPublicKey] = useState<PublicKey | null>(null);
-  const [connected, setConnected] = useState(false);
   
   // Get store state and actions
   const { 
@@ -108,64 +108,12 @@ export function useWalletData() {
     setMounted(true);
   }, []);
 
-  // Update connection status - only run on client side
+  // Reset wallet data when wallet disconnects
   useEffect(() => {
-    if (!mounted) return;
-    
-    // Function to safely get the wallet
-    const getWallet = () => {
-      if (typeof window !== 'undefined' && window.solana) {
-        return window.solana;
-      }
-      return null;
-    };
-    
-    const wallet = getWallet();
-    
-    // Check initial connection
-    if (wallet && wallet.isConnected && wallet.publicKey) {
-      setPublicKey(wallet.publicKey);
-      setConnected(true);
-    }
-
-    // Listen for wallet connection changes
-    const handleConnect = () => {
-      if (wallet && wallet.publicKey) {
-        setPublicKey(wallet.publicKey);
-        setConnected(true);
-      }
-    };
-
-    const handleDisconnect = () => {
-      setPublicKey(null);
-      setConnected(false);
+    if (!connected) {
       resetState();
-    };
-
-    const handleAccountChange = () => {
-      if (wallet && wallet.publicKey) {
-        setPublicKey(wallet.publicKey);
-        setConnected(true);
-      } else {
-        setPublicKey(null);
-        setConnected(false);
-      }
-    };
-
-    if (wallet) {
-      wallet.on('connect', handleConnect);
-      wallet.on('disconnect', handleDisconnect);
-      wallet.on('accountChanged', handleAccountChange);
     }
-
-    return () => {
-      if (wallet) {
-        wallet.off('connect', handleConnect);
-        wallet.off('disconnect', handleDisconnect);
-        wallet.off('accountChanged', handleAccountChange);
-      }
-    };
-  }, [mounted, resetState]);
+  }, [connected, resetState]);
 
   // Create a stable refreshBalance function with useCallback
   const refreshBalance = useCallback(async () => {
@@ -223,13 +171,6 @@ export function useWalletData() {
       setIsProfileLoading(false);
     }
   }, [publicKey, connected, setUserProfile, setIsProfileLoading]);
-
-  // Reset wallet data when component unmounts or wallet disconnects
-  useEffect(() => {
-    if (!connected) {
-      resetState();
-    }
-  }, [connected, resetState]);
 
   return {
     publicKey,
