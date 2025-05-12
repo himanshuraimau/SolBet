@@ -82,24 +82,22 @@ export const useBet = () => {
       return null;
     }
 
-    // First, we need to fetch the bet data to get the escrow account
-    const betData = await useSolanaBetData(params.betId).refetch();
-    
-    if (!betData.data) {
-      toast({
-        title: 'Bet not found',
-        description: 'The bet you are trying to place could not be found',
-        variant: 'destructive',
-      });
-      return null;
-    }
-
     setIsLoading(true);
     try {
-      // Using Solana smart contract directly for placing a bet
+      // Fetch the Solana addresses for this bet from our API
+      const accountsResponse = await fetch(`/api/bets/${params.betId}/solana-address`);
+      
+      if (!accountsResponse.ok) {
+        const errorData = await accountsResponse.json();
+        throw new Error(errorData.error || "Failed to fetch Solana addresses");
+      }
+      
+      const { betAccount, escrowAccount } = await accountsResponse.json();
+
+      // Using Solana smart contract for placing a bet
       const result = await makeSolanaBet.mutateAsync({
-        betAccount: params.betId,
-        escrowAccount: betData.data.escrowAccount,
+        betAccount: betAccount,
+        escrowAccount: escrowAccount,
         amount: params.amount,
         position: params.position,
       });
@@ -124,34 +122,44 @@ export const useBet = () => {
       return null;
     }
 
-    // First, we need to fetch the bet data to get the escrow account
-    const betData = await useSolanaBetData(betId).refetch();
-    
-    if (!betData.data) {
-      toast({
-        title: 'Bet not found',
-        description: 'The bet you are trying to resolve could not be found',
-        variant: 'destructive',
-      });
-      return null;
-    }
-
-    // Verify the user is the creator of the bet
-    if (wallet.publicKey?.toBase58() !== betData.data.creator) {
-      toast({
-        title: 'Not authorized',
-        description: 'Only the creator of the bet can resolve it',
-        variant: 'destructive',
-      });
-      return null;
-    }
-
     setIsLoading(true);
     try {
-      // Using Solana smart contract directly for resolving a bet
+      // Fetch the Solana addresses for this bet from our API
+      const accountsResponse = await fetch(`/api/bets/${betId}/solana-address`);
+      
+      if (!accountsResponse.ok) {
+        const errorData = await accountsResponse.json();
+        throw new Error(errorData.error || "Failed to fetch Solana addresses");
+      }
+      
+      const { betAccount, escrowAccount } = await accountsResponse.json();
+
+      // Verify the user is the creator of the bet using on-chain data
+      const betData = await useSolanaBetData(betAccount).refetch();
+      
+      if (!betData.data) {
+        toast({
+          title: 'Bet not found',
+          description: 'The bet you are trying to resolve could not be found on the blockchain',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Verify the user is the creator of the bet
+      if (wallet.publicKey?.toBase58() !== betData.data.creator) {
+        toast({
+          title: 'Not authorized',
+          description: 'Only the creator of the bet can resolve it',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Using Solana smart contract for resolving a bet
       const result = await settleSolanaBet.mutateAsync({
-        betAccount: betId,
-        escrowAccount: betData.data.escrowAccount,
+        betAccount: betAccount,
+        escrowAccount: escrowAccount,
         outcome,
       });
       
@@ -175,24 +183,22 @@ export const useBet = () => {
       return null;
     }
 
-    // First, we need to fetch the bet data to get the escrow account
-    const betData = await useSolanaBetData(betId).refetch();
-    
-    if (!betData.data) {
-      toast({
-        title: 'Bet not found',
-        description: 'The bet you are trying to withdraw from could not be found',
-        variant: 'destructive',
-      });
-      return null;
-    }
-
     setIsLoading(true);
     try {
+      // First, fetch the Solana addresses for this bet from our API
+      const accountsResponse = await fetch(`/api/bets/${betId}/solana-address`);
+      
+      if (!accountsResponse.ok) {
+        const errorData = await accountsResponse.json();
+        throw new Error(errorData.error || "Failed to fetch Solana addresses");
+      }
+      
+      const { betAccount, escrowAccount } = await accountsResponse.json();
+      
       // Using Solana smart contract directly for withdrawing funds
       const result = await withdrawSolana.mutateAsync({
-        betAccount: betId,
-        escrowAccount: betData.data.escrowAccount,
+        betAccount: betAccount,
+        escrowAccount: escrowAccount,
         userBetAccount,
       });
       

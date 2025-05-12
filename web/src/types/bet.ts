@@ -3,15 +3,19 @@ export interface Bet {
   title: string
   description: string
   creator: string
+  creatorName?: string
   category: BetCategory
   yesPool: number
   noPool: number
+  totalPool?: number
   minimumBet: number
   maximumBet: number
-  startTime: Date
-  endTime: Date
+  startTime: Date | string
+  endTime: Date | string
   status: BetStatus
-  participants: Participant[]
+  participants?: Participant[]
+  participantCount: number
+  daysLeft: number
 }
 
 export type BetCategory = "sports" | "politics" | "entertainment" | "crypto" | "weather" | "other"
@@ -22,4 +26,20 @@ export interface Participant {
   position: "yes" | "no"
   amount: number
   timestamp: Date
+  onChainUserBetAccount?: string // Solana address for the user's bet account
+  claimed?: boolean // Whether the user has claimed their winnings/funds
 }
+
+export interface PaginationInfo {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface BetsResponse {
+  bets: Bet[]
+  pagination: PaginationInfo
+}
+
+export type BetTab = 'all' | 'trending' | 'ending-soon' | 'my-bets'

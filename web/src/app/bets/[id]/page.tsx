@@ -6,6 +6,7 @@ import { useBet } from "@/lib/query/hooks/use-bets"
 import { useWallet } from "@solana/wallet-adapter-react"
 import ResolveBetForm from "@/components/bet/resolve-bet-form"
 import PlaceBetForm from "@/components/bet/place-bet-form"
+import WithdrawFundsForm from "@/components/bet/withdraw-funds-form"
 import { CardHeader, CardTitle, CardDescription, CardContent, Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatSOL } from "@/lib/utils"
@@ -24,6 +25,25 @@ export default function BetPage() {
 
   // Check if the current user is the creator of the bet
   const isCreator = bet?.creator === publicKey?.toString()
+  
+  // Check if user has participated in this bet
+  const hasUserParticipated = bet?.participants?.some(p => 
+    p.walletAddress === publicKey?.toString()
+  ) || false
+  
+  // Find user's bet details if they've participated
+  const userBet = bet?.participants?.find(p => 
+    p.walletAddress === publicKey?.toString()
+  )
+  
+  // Determine if user can withdraw funds:
+  // - If bet is resolved (resolved_yes or resolved_no)
+  // - If bet has expired
+  // - If user has participated
+  const canWithdraw = hasUserParticipated && (
+    bet?.status.startsWith('resolved_') || 
+    (bet?.status === 'active' && new Date(bet?.endTime) <= new Date())
+  )
 
   // Update time left every second
   useEffect(() => {
@@ -139,6 +159,16 @@ export default function BetPage() {
       {/* Resolve bet form - only shown to the creator */}
       {isCreator && (
         <ResolveBetForm bet={bet} isCreator={isCreator} />
+      )}
+
+      {/* Withdraw funds form - shown to participants */}
+      {publicKey && (
+        <WithdrawFundsForm 
+          bet={bet} 
+          userBetAccount={userBet?.onChainUserBetAccount} 
+          canWithdraw={canWithdraw}
+          hasUserParticipated={hasUserParticipated}
+        />
       )}
     </div>
   )

@@ -158,21 +158,27 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
       let onChainResult;
       
       try {
-        // Get escrow account from bet ID
-        // In a real implementation, you'd need to fetch the escrow account from your backend or chain
-        // Here we're assuming the bet.id is the bet account address on Solana
-        const escrowAccount = bet.id.includes('escrow') ? bet.id : `${bet.id}-escrow` 
+        // We need to fetch the actual Solana account address corresponding to this bet ID
+        // First, let's check if this is a database ID or a Solana address
+        const response = await fetch(`/api/bets/${bet.id}/solana-address`);
         
-        // Place bet on Solana blockchain
+        if (!response.ok) {
+          throw new Error("Failed to fetch Solana account addresses for this bet");
+        }
+        
+        const { betAccount, escrowAccount } = await response.json();
+        
+        // Place bet on Solana blockchain using the actual Solana addresses
         onChainResult = await makeBet.mutateAsync({
-          betAccount: bet.id,
+          betAccount: betAccount,
           escrowAccount: escrowAccount,
           amount: amount,
           position: position
         });
       } catch (err) {
         console.error("Error processing on-chain transaction:", err)
-        setError(`Blockchain error: ${(err as Error).message}`)
+        const errorMessage = err instanceof Error ? err.message : "Unknown error"
+        setError(`Blockchain error: ${errorMessage}`)
         setIsSolanaLoading(false)
         return
       }
@@ -231,7 +237,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
   }
 
   // Check if user has already placed a bet on this event
-  const userParticipation = bet.participants.find(p => p.walletAddress === publicKey.toString())
+  const userParticipation = bet.participants?.find(p => p.walletAddress === publicKey.toString())
   
   if (userParticipation) {
     return (

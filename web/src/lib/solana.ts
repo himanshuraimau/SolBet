@@ -32,6 +32,28 @@ function createSafePubkey(address: string): PublicKey {
   return new PublicKey(address);
 }
 
+// Generate deterministic addresses for a bet based on a seed
+export function generateBetAddress(seed: string): { betAccount: string, escrowAccount: string } {
+  // Create two keypairs using different suffixes to the seed
+  const betSeed = `${seed}-bet`;
+  const escrowSeed = `${seed}-escrow`;
+  
+  // Create deterministic keypairs using the seed as input to a hash function
+  // In a real implementation, you would use a more secure method to derive these
+  const betAccountKeypair = Keypair.fromSeed(
+    Buffer.from(betSeed).slice(0, 32)
+  );
+  
+  const escrowAccountKeypair = Keypair.fromSeed(
+    Buffer.from(escrowSeed).slice(0, 32)
+  );
+  
+  return {
+    betAccount: betAccountKeypair.publicKey.toString(),
+    escrowAccount: escrowAccountKeypair.publicKey.toString(),
+  };
+}
+
 // Initialize PROGRAM_ID safely
 const PROGRAM_ID = createSafePubkey(process.env.NEXT_PUBLIC_PROGRAM_ID || DEFAULT_PROGRAM_ID);
 

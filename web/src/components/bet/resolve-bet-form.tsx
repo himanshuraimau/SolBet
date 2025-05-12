@@ -12,7 +12,7 @@ import { toast } from "@/hooks/use-toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Bet } from "@/types/bet"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
-import { useBet } from "@/hooks/bet/use-bet"
+import { useSolanaBet } from "@/hooks/bet/use-solana-bet"
 import { queryKeys } from "@/lib/query/config"
 
 interface ResolveBetFormProps {
@@ -23,11 +23,10 @@ interface ResolveBetFormProps {
 export default function ResolveBetForm({ bet, isCreator }: ResolveBetFormProps) {
   const { publicKey, connected } = useWallet()
   const [outcome, setOutcome] = useState<"yes" | "no">("yes")
-  const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
-  const { resolveBet } = useBet()
+  const { settleBet, isLoading } = useSolanaBet()
 
   // Check if the bet can be resolved
   const canBeResolved = isCreator && bet.status === "active" && new Date(bet.endTime) <= new Date()
@@ -46,14 +45,29 @@ export default function ResolveBetForm({ bet, isCreator }: ResolveBetFormProps) 
       if (bet.status !== "active") {
         throw new Error("This bet cannot be resolved because it's not active")
       }
+      
+      // Step 1: Fetch the Solana accounts for this bet
+      const accountsResponse = await fetch(`/api/bets/${bet.id}/solana-address`)
+      
+      if (!accountsResponse.ok) {
+        const errorData = await accountsResponse.json()
+        throw new Error(errorData.error || "Failed to fetch Solana addresses")
+      }
+      
+      const { betAccount, escrowAccount } = await accountsResponse.json()
 
-      // Step 1: Process the bet on Solana blockchain
-      const onChainResult = await resolveBet(bet.id, outcome)
+      // Step 2: Process the bet on Solana blockchain
+      const onChainResult = await settleBet.mutateAsync({
+        betAccount: betAccount,
+        escrowAccount: escrowAccount,
+        outcome: outcome
+      })
+      
       if (!onChainResult) {
         throw new Error("Failed to resolve bet on blockchain")
       }
       
-      // Step 2: Update the database through our API
+      // Step 3: Update the database through our API
       const response = await fetch(`/api/bets/resolve/${bet.id}`, {
         method: "PUT",
         headers: {
@@ -112,13 +126,10 @@ export default function ResolveBetForm({ bet, isCreator }: ResolveBetFormProps) 
     
     try {
       setSuccess(false)
-      setIsLoading(true)
       await resolveBetMutation.mutateAsync()
     } catch (err) {
       // Error handling is done in the mutation callbacks
       console.error("Error resolving bet:", err)
-    } finally {
-      setIsLoading(false)
     }
   }
 
