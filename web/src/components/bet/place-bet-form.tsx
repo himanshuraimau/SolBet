@@ -159,7 +159,6 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
       
       try {
         // We need to fetch the actual Solana account address corresponding to this bet ID
-        // First, let's check if this is a database ID or a Solana address
         const response = await fetch(`/api/bets/${bet.id}/solana-address`);
         
         if (!response.ok) {
@@ -175,12 +174,29 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
           amount: amount,
           position: position
         });
-      } catch (err) {
-        console.error("Error processing on-chain transaction:", err)
-        const errorMessage = err instanceof Error ? err.message : "Unknown error"
-        setError(`Blockchain error: ${errorMessage}`)
-        setIsSolanaLoading(false)
-        return
+      } catch (err: any) {
+        console.error("Error processing on-chain transaction:", err);
+        
+        // Check for SendTransactionError and get logs if available
+        let errorMessage = err instanceof Error ? err.message : "Unknown error";
+        if (err.logs) {
+          console.error("Transaction logs:", err.logs);
+          errorMessage += "\nDetails: " + err.logs.join("\n");
+        } else if (typeof err.getLogs === 'function') {
+          const logs = err.getLogs();
+          console.error("Transaction logs:", logs);
+          errorMessage += "\nDetails: " + logs.join("\n");
+        }
+        
+        // Show cleaner error message to the user
+        setError(`Blockchain transaction failed. Please try again.`);
+        toast({
+          title: "Transaction Failed",
+          description: "The Solana transaction could not be completed. Please try again later.",
+          variant: "destructive",
+        });
+        setIsSolanaLoading(false);
+        return;
       }
       
       // Step 2: Record the bet in our database with the transaction signature

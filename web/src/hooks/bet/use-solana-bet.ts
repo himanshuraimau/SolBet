@@ -10,6 +10,36 @@ import {
 } from '../../lib/solana';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/config';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, TransactionInstruction } from "@solana/web3.js";
+import * as buffer from "buffer";
+
+// Ensure Buffer is available for encoding
+if (typeof window !== "undefined") {
+  window.Buffer = buffer.Buffer;
+}
+
+// Helper function to get connection
+const getConnection = () => {
+  return new Connection(
+    process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com",
+    "confirmed"
+  );
+};
+
+// Get program ID from environment variables
+const getProgramId = () => {
+  const programIdStr = process.env.NEXT_PUBLIC_PROGRAM_ID;
+  if (!programIdStr) {
+    throw new Error("NEXT_PUBLIC_PROGRAM_ID is not set in environment variables");
+  }
+  
+  try {
+    return new PublicKey(programIdStr);
+  } catch (error) {
+    console.error("Invalid program ID format:", error);
+    throw new Error("Invalid program ID format in environment variables");
+  }
+};
 
 export interface BetData {
   betAccount: string;
@@ -29,6 +59,8 @@ export const useSolanaBet = () => {
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+  const { publicKey, sendTransaction } = useWallet();
+  const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || "11111111111111111111111111111111");
 
   // Create a new bet
   const createBet = useMutation({
@@ -87,26 +119,92 @@ export const useSolanaBet = () => {
       if (!wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
+
+      const programId = getProgramId();
       
-      setIsLoading(true);
-      try {
-        const result = await placeBet(wallet, betAccount, escrowAccount, amount, position);
-        toast({
-          title: "Bet placed successfully",
-          description: `Transaction signature: ${result.signature.slice(0, 8)}...`,
-        });
-        return result;
-      } catch (error) {
-        console.error("Error placing bet:", error);
-        toast({
-          title: "Failed to place bet",
-          description: (error as Error).message,
-          variant: "destructive",
-        });
-        throw error;
-      } finally {
-        setIsLoading(false);
+      console.log("Making bet with program ID:", programId.toString());
+      console.log("Bet account:", betAccount);
+      console.log("Escrow account:", escrowAccount);
+      console.log("Position:", position);
+      console.log("Amount:", amount);
+      
+      if (!publicKey) {
+        throw new Error("Wallet public key is null");
       }
+
+      try {
+        const connection = getConnection();
+        
+        // Convert string addresses to PublicKey objects
+        const betPubkey = new PublicKey(betAccount);
+        const escrowPubkey = new PublicKey(escrowAccount);
+        
+        // Create a transaction instruction for placing a bet
+        // The instruction data layout should match what your program expects
+        const positionValue = position === "yes" ? 1 : 0;
+        const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
+        
+        // Create instruction data buffer - format should match your program's expected layout
+        // Example: [command_id, position, amount_bytes]
+        const data = Buffer.from([
+          0, // command id for "place bet"
+          positionValue, // 1 for yes, 0 for no
+          ...new Uint8Array(new Float64Array([amount]).buffer) // amount as bytes
+        ]);
+        
+        // Create the instruction with the proper accounts and data
+        const instruction = new TransactionInstruction({
+          keys: [
+            { pubkey: publicKey, isSigner: true, isWritable: true }, // user wallet
+            { pubkey: betPubkey, isSigner: false, isWritable: true }, // bet account
+            { pubkey: escrowPubkey, isSigner: false, isWritable: true }, // escrow account
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false } // system program
+          ],
+          programId: programId,
+          data: data
+        });
+        
+        // Also add a system transfer instruction to send the bet amount to the escrow
+        const transferInstruction = SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: escrowPubkey,
+          lamports: lamports
+        });
+        
+        // Create and send the transaction
+        const transaction = new Transaction().add(transferInstruction, instruction);
+        
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = publicKey;
+        
+        console.log("Sending transaction...");
+        const signature = await sendTransaction(transaction, connection);
+        console.log("Transaction sent with signature:", signature);
+        
+        console.log("Confirming transaction...");
+        await connection.confirmTransaction(signature, "confirmed");
+        console.log("Transaction confirmed!");
+        
+        return { signature };
+      } catch (error) {
+        console.error("Error making bet:", error);
+        throw error;
+      }
+    },
+    onError: (error: any) => {
+      console.error("Mutation error:", error);
+      
+      // Extract logs if available for better debugging
+      if (error.logs) {
+        console.error("Transaction logs:", error.logs);
+      }
+      
+      toast({
+        title: "Failed to place bet on blockchain",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
     },
     onSuccess: (_, variables) => {
       // Invalidate queries to refetch data
