@@ -167,7 +167,13 @@ export default function ProfilePage() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start text-accent-coral" 
-                onClick={() => window.solana?.disconnect()}>
+                onClick={() => {
+                  // Use the wallet adapter instead of window.solana
+                  const wallet = window.solana;
+                  if (wallet && wallet.disconnect) {
+                    wallet.disconnect();
+                  }
+                }}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Disconnect Wallet
               </Button>
@@ -207,8 +213,8 @@ export default function ProfilePage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {bettingHistory.map((bet: any) => (
-                            <div key={bet.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                          {bettingHistory.map((bet: any, index: number) => (
+                            <div key={bet.id || `bet-${index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                               <div>
                                 <div className="font-medium">{bet.title}</div>
                                 <div className="text-sm text-muted-foreground">
