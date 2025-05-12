@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  request: NextRequest,
+  _: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = params.id;
+    // Need to await params in dynamic API routes
+    const { id } = await params;
 
     // Fetch the bet by ID
     const bet = await prisma.bet.findUnique({

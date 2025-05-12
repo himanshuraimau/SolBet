@@ -55,23 +55,7 @@ const sidebarLinks = [
   },
 ]
 
-const bottomLinks = [
-  {
-    name: "Notifications",
-    href: "/notifications",
-    icon: Bell,
-  },
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-  {
-    name: "Help",
-    href: "/help",
-    icon: HelpCircle,
-  },
-]
+
 
 interface SidebarProps {
   className?: string
@@ -163,37 +147,6 @@ export default function Sidebar({ className }: SidebarProps) {
               ))}
             </nav>
 
-            <nav className="space-y-1 pt-4">
-              {bottomLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    pathname === link.href
-                      ? "bg-primary-gradient text-text-plum"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    collapsed ? "justify-center" : "",
-                  )}
-                  onClick={() => setMobileOpen(false)}
-                  title={collapsed ? link.name : undefined}
-                >
-                  <link.icon className="h-5 w-5" />
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={{ opacity: 0, width: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {link.name}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </Link>
-              ))}
-            </nav>
           </div>
         </motion.div>
       </AnimatePresence>
