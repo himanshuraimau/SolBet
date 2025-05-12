@@ -5,6 +5,7 @@ import { useWalletStore } from '../../store/wallet-store';
 import { toast } from '../use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { BetData } from './use-solana-bet';
+import { queryKeys } from '@/lib/query/config';
 
 export type BetPosition = 'yes' | 'no';
 
@@ -207,7 +208,7 @@ export const useBet = () => {
   // Fetch all bets (you might want to implement pagination)
   const useAllBets = () => {
     return useQuery({
-      queryKey: ['bets'],
+      queryKey: queryKeys.bets.all,
       queryFn: async () => {
         // This would typically make a call to your backend or a decentralized storage solution
         // to get all available bets. For now, this is a placeholder.
@@ -226,7 +227,7 @@ export const useBet = () => {
     const { publicKey } = wallet;
     
     return useQuery({
-      queryKey: ['userCreatedBets', publicKey?.toBase58()],
+      queryKey: queryKeys.user.bets(),
       queryFn: async () => {
         if (!publicKey) return [];
         // This would typically make a call to your backend or a decentralized storage solution
@@ -242,7 +243,7 @@ export const useBet = () => {
     const { publicKey } = wallet;
     
     return useQuery({
-      queryKey: ['userParticipatedBets', publicKey?.toBase58()],
+      queryKey: queryKeys.user.bets(),
       queryFn: async () => {
         if (!publicKey) return [];
         // This would typically make a call to your backend or a decentralized storage solution

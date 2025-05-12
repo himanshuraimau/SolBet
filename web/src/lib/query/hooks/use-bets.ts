@@ -50,7 +50,7 @@ export const useBet = (betId: string) => {
     error,
     refetch
   } = useQuery({
-    queryKey: ["bet", betId],
+    queryKey: queryKeys.bets.detail(betId),
     queryFn: async () => {
       const response = await fetch(`/api/bets/${betId}`);
       
@@ -63,6 +63,11 @@ export const useBet = (betId: string) => {
       return data as Bet;
     },
     enabled: !!betId,
+    retry: 3,
+    retryDelay: 1000,
+    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Also get Solana chain data for this bet

@@ -9,6 +9,7 @@ import {
   fetchBetData
 } from '../../lib/solana';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query/config';
 
 export interface BetData {
   betAccount: string;
@@ -109,8 +110,8 @@ export const useSolanaBet = () => {
     },
     onSuccess: (_, variables) => {
       // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ['bets'] });
-      queryClient.invalidateQueries({ queryKey: ['bet', variables.betAccount] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.detail(variables.betAccount) });
     }
   });
 
@@ -151,8 +152,8 @@ export const useSolanaBet = () => {
     },
     onSuccess: (_, variables) => {
       // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ['bets'] });
-      queryClient.invalidateQueries({ queryKey: ['bet', variables.betAccount] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.detail(variables.betAccount) });
     }
   });
 
@@ -193,16 +194,16 @@ export const useSolanaBet = () => {
     },
     onSuccess: (_, variables) => {
       // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ['bets'] });
-      queryClient.invalidateQueries({ queryKey: ['bet', variables.betAccount] });
-      queryClient.invalidateQueries({ queryKey: ['userBets'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.detail(variables.betAccount) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.bets() });
     }
   });
 
   // Fetch a single bet
   const useBetData = (betAccount?: string) => {
     return useQuery({
-      queryKey: ['bet', betAccount],
+      queryKey: queryKeys.bets.detail(betAccount || ''),
       queryFn: async () => {
         if (!betAccount) return null;
         return await fetchBetData(betAccount);

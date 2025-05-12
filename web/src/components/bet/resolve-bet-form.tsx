@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Bet } from "@/types/bet"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { useBet } from "@/hooks/bet/use-bet"
+import { queryKeys } from "@/lib/query/config"
 
 interface ResolveBetFormProps {
   bet: Bet
@@ -74,8 +75,8 @@ export default function ResolveBetForm({ bet, isCreator }: ResolveBetFormProps) 
     },
     onSuccess: () => {
       // Invalidate queries to refresh the data
-      queryClient.invalidateQueries({ queryKey: ["bet", bet.id] })
-      queryClient.invalidateQueries({ queryKey: ["bets"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.detail(bet.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.bets.lists() })
       setSuccess(true)
       
       toast({
