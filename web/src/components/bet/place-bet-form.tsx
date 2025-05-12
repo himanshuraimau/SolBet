@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Bet } from "@/types/bet"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
+import { useSolanaBet } from "@/hooks/bet/use-solana-bet"
 
 interface PlaceBetFormProps {
   bet: Bet
@@ -62,6 +63,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
   const [balance, setBalance] = useState<number | null>(null)
   const [isSolanaLoading, setIsSolanaLoading] = useState(false)
   const queryClient = useQueryClient()
+  const { makeBet } = useSolanaBet()  // Add Solana Bet hook
 
   const totalPool = bet.yesPool + bet.noPool
   const odds = calculateOdds(bet.yesPool, bet.noPool, position)
@@ -152,8 +154,27 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
       setIsSolanaLoading(true)
       
       // Step 1: Process the bet on Solana blockchain
-      // For now, using a mock implementation - in production, this would call the real Solana blockchain
-      const onChainResult = await simulateSolanaTransaction(amount);
+      let onChainResult;
+      
+      try {
+        // Get escrow account from bet ID
+        // In a real implementation, you'd need to fetch the escrow account from your backend or chain
+        // Here we're assuming the bet.id is the bet account address on Solana
+        const escrowAccount = bet.id.includes('escrow') ? bet.id : `${bet.id}-escrow` 
+        
+        // Place bet on Solana blockchain
+        onChainResult = await makeBet.mutateAsync({
+          betAccount: bet.id,
+          escrowAccount: escrowAccount,
+          amount: amount,
+          position: position
+        });
+      } catch (err) {
+        console.error("Error processing on-chain transaction:", err)
+        setError(`Blockchain error: ${(err as Error).message}`)
+        setIsSolanaLoading(false)
+        return
+      }
       
       // Step 2: Record the bet in our database with the transaction signature
       await placeBetMutation.mutateAsync({

@@ -4,10 +4,13 @@
     "": {
       "dependencies": {
         "@prisma/client": "^6.7.0",
+        "date-utils": "^1.2.21",
       },
     },
   },
   "packages": {
     "@prisma/client": ["@prisma/client@6.7.0", "", { "peerDependencies": { "prisma": "*", "typescript": ">=5.1.0" }, "optionalPeers": ["prisma", "typescript"] }, "sha512-+k61zZn1XHjbZul8q6TdQLpuI/cvyfil87zqK2zpreNIXyXtpUv3+H/oM69hcsFcZXaokHJIzPAt5Z8C8eK2QA=="],
+
+    "date-utils": ["date-utils@1.2.21", "", {}, "sha512-wJMBjqlwXR0Iv0wUo/lFbhSQ7MmG1hl36iuxuE91kW+5b5sWbase73manEqNH9sOLFAMG83B4ffNKq9/Iq0FVA=="],
   }
 }
