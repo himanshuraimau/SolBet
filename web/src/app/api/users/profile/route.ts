@@ -1,37 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
+import { safeApiHandler, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
+/**
+ * @route GET /api/users/profile
+ * @description Get a user's profile by wallet address
+ * @param {string} address - The user's wallet address
+ * @returns {Object} User profile information
+ */
 export async function GET(request: NextRequest) {
-  try {
-    // Get the wallet address from the query parameters
+  return safeApiHandler(async () => {
     const searchParams = request.nextUrl.searchParams;
     const walletAddress = searchParams.get("address");
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        { error: "Wallet address is required" },
-        { status: 400 }
-      );
-    }
-
-    // Find the user by wallet address
-    const user = await prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
+    
+    const user = await validateUserByWalletAddress(walletAddress!);
 
     // Format the user data to match our UserProfile type
     const userProfile = {
       walletAddress: user.walletAddress,
       displayName: user.displayName || undefined,
       avatar: user.avatar || undefined,
-      createdAt: user.createdAt, // Include createdAt field
+      createdAt: user.createdAt,
       stats: {
         betsCreated: user.betsCreated,
         betsJoined: user.betsJoined,
@@ -44,12 +32,6 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    return NextResponse.json(userProfile);
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user profile" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse(userProfile);
+  });
 }

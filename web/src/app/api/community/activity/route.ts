@@ -1,8 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, formatApiResponse } from "@/lib/api-utils";
 
+/**
+ * @route GET /api/community/activity
+ * @description Get recent activity across all users
+ * @returns {Array} Community activity feed
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     // Get the most recent transactions across all users
     const transactions = await prisma.transaction.findMany({
       where: {
@@ -56,7 +62,7 @@ export async function GET(request: NextRequest) {
         id: tx.id,
         type: activityType,
         title,
-        amount: tx.amount,
+        amount: Number(tx.amount),
         timestamp: tx.timestamp,
         user: {
           address: tx.user.walletAddress,
@@ -67,12 +73,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(activities);
-  } catch (error) {
-    console.error("Error fetching community activity:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch community activity" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse(activities);
+  });
 }

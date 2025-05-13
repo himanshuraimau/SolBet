@@ -1,33 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { safeApiHandler, ApiError, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
+/**
+ * @route POST /api/bets/:id/withdraw
+ * @description Withdraw funds from a bet
+ * @param {string} id - The bet ID
+ * @body {Object} body - Contains wallet address and transaction ID
+ * @returns {Object} Success status and updated user bet information
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+  return safeApiHandler(async () => {
     const betId = params.id;
     
     if (!betId) {
-      return NextResponse.json({ error: "Bet ID is required" }, { status: 400 });
+      return ApiError.badRequest("Bet ID is required");
     }
     
     const data = await request.json();
     const { walletAddress, onChainTxId } = data;
     
-    if (!walletAddress) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-    
-    // Find the user with this wallet address
-    const user = await prisma.user.findUnique({
-      where: { walletAddress },
-      select: { id: true },
-    });
-    
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    const user = await validateUserByWalletAddress(walletAddress);
     
     // Find the user's bet
     const userBet = await prisma.userBet.findUnique({
@@ -40,7 +36,7 @@ export async function POST(
     });
     
     if (!userBet) {
-      return NextResponse.json({ error: "User has not participated in this bet" }, { status: 404 });
+      return ApiError.notFound("User has not participated in this bet");
     }
     
     // Mark the bet as claimed
@@ -67,17 +63,10 @@ export async function POST(
       });
     }
     
-    return NextResponse.json({
+    return formatApiResponse({
       success: true,
       message: "Funds withdrawn successfully",
       userBet: updatedUserBet,
     });
-    
-  } catch (error) {
-    console.error("Error withdrawing funds:", error);
-    return NextResponse.json(
-      { error: "Failed to withdraw funds" },
-      { status: 500 }
-    );
-  }
+  });
 }

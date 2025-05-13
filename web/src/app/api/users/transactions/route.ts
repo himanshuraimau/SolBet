@@ -1,26 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
-// GET /api/users/transactions
+/**
+ * @route GET /api/users/transactions
+ * @description Get transactions for a user by wallet address
+ * @param {string} address - The user's wallet address
+ * @returns {Object} List of transactions with related bet information
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
-
-    if (!address) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    // Get user from wallet address
-    const user = await prisma.user.findFirst({
-      where: {
-        walletAddress: address,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    
+    const user = await validateUserByWalletAddress(address!);
 
     // Get user transactions
     const userTransactions = await prisma.transaction.findMany({
@@ -64,14 +57,8 @@ export async function GET(request: NextRequest) {
       status: t.status,
     }));
 
-    return NextResponse.json({
+    return formatApiResponse({
       transactions: formattedTransactions,
     });
-  } catch (error) {
-    console.error("Error fetching user transactions:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user transactions" },
-      { status: 500 }
-    );
-  }
+  });
 }

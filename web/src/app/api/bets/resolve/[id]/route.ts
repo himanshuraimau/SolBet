@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, ApiError, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
 interface ResolveBetRequest {
   walletAddress: string;
@@ -7,35 +8,29 @@ interface ResolveBetRequest {
   onChainTxId?: string; // Optional on-chain transaction ID
 }
 
+/**
+ * @route PUT /api/bets/resolve/:id
+ * @description Resolve a bet with the final outcome
+ * @param {string} id - The bet ID
+ * @body {Object} body - Contains wallet address, outcome, and optional transaction ID
+ * @returns {Object} Updated bet information with resolution details
+ */
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+  return safeApiHandler(async () => {
     // Parse the request body
     const body: ResolveBetRequest = await request.json();
     const { walletAddress, outcome, onChainTxId } = body;
     const betId = params.id;
     
     // Validate required fields
-    if (!walletAddress || !outcome) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    if (!outcome) {
+      return ApiError.badRequest("Outcome is required");
     }
 
-    // Find the user by wallet address
-    const user = await prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found. Please connect your wallet first." },
-        { status: 404 }
-      );
-    }
+    const user = await validateUserByWalletAddress(walletAddress);
 
     // Find the bet
     const bet = await prisma.bet.findUnique({
@@ -43,26 +38,17 @@ export async function PUT(
     });
 
     if (!bet) {
-      return NextResponse.json(
-        { error: "Bet not found" },
-        { status: 404 }
-      );
+      return ApiError.notFound("Bet not found");
     }
 
     // Verify that the user is the creator of the bet
     if (bet.creatorId !== user.id) {
-      return NextResponse.json(
-        { error: "Only the creator of the bet can resolve it" },
-        { status: 403 }
-      );
+      return ApiError.forbidden("Only the creator of the bet can resolve it");
     }
 
     // Validate that the bet is still active
     if (bet.status !== "active") {
-      return NextResponse.json(
-        { error: "This bet cannot be resolved because it's not active" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("This bet cannot be resolved because it's not active");
     }
 
     // Update the bet status to resolved_yes or resolved_no based on outcome
@@ -129,16 +115,10 @@ export async function PUT(
       })),
     };
 
-    return NextResponse.json({
+    return formatApiResponse({
       message: "Bet resolved successfully",
       bet: formattedBet,
       transactionSignature: onChainTxId || null,
     });
-  } catch (error) {
-    console.error("Error resolving bet:", error);
-    return NextResponse.json(
-      { error: "Failed to resolve bet" },
-      { status: 500 }
-    );
-  }
+  });
 }

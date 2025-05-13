@@ -1,48 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, validateUserByWalletAddress, getPeriodStartDate, formatApiResponse } from "@/lib/api-utils";
 
-// GET /api/users/stats
+/**
+ * @route GET /api/users/stats
+ * @description Get detailed statistics for a user over a specific time period
+ * @param {string} address - The user's wallet address
+ * @param {string} timeFrame - Time period for statistics (1d, 7d, 30d, all)
+ * @returns {Object} User stats and bet history
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
     const timeFrame = searchParams.get("timeFrame") || "7d";
-
-    if (!address) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { walletAddress: address },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    
+    const user = await validateUserByWalletAddress(address!);
 
     const now = new Date();
-    let startDate = new Date();
-
-    switch (timeFrame) {
-      case "1d":
-        startDate.setDate(now.getDate() - 1);
-        break;
-      case "7d":
-        startDate.setDate(now.getDate() - 7);
-        break;
-      case "30d":
-        startDate.setDate(now.getDate() - 30);
-        break;
-      case "all":
-        startDate.setFullYear(now.getFullYear() - 1);
-        const accountCreationDate = new Date(user.createdAt);
-        if (accountCreationDate > startDate) {
-          startDate = accountCreationDate;
-        }
-        break;
-      default:
-        startDate.setDate(now.getDate() - 7);
-    }
+    // Get period start date
+    const startDate = getPeriodStartDate(timeFrame, user.createdAt);
 
     const userBets = await prisma.userBet.findMany({
       where: {
@@ -53,7 +30,7 @@ export async function GET(request: NextRequest) {
         },
       },
       include: {
-        bet: true, // This will make userBet.bet available and typed
+        bet: true,
       },
     });
 
@@ -70,6 +47,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Calculate statistics
     let betsWon = 0;
     let betsLost = 0;
     let winnings = 0;
@@ -77,23 +55,32 @@ export async function GET(request: NextRequest) {
     let activeBets = 0;
     let totalBetAmount = 0;
 
-    userBets.forEach((userBet) => { // Type for userBet is inferred here
+    userBets.forEach((userBet) => {
       totalBetAmount += Number(userBet.amount) || 0;
 
-      if (userBet.bet && userBet.bet.status === "SETTLED") {
-        if (userBet.claimed) {
-          // Assuming 'claimed' means they won. Win amount is not on UserBet model.
-          // betsWon++; 
-          // winnings += ???; // winAmount is not available on UserBet.
-        } else {
-          betsLost++;
-          losses += Number(userBet.amount) || 0;
+      if (userBet.bet) {
+        const status = userBet.bet.status;
+        
+        if (status.startsWith("resolved_") || status === "SETTLED" || status === "settled") {
+          const outcomeIsYes = status.includes("yes");
+          const userPositionIsYes = userBet.position.toUpperCase() === "YES";
+          
+          // Check if user won
+          if ((outcomeIsYes && userPositionIsYes) || (!outcomeIsYes && !userPositionIsYes)) {
+            betsWon++;
+            // Calculate winnings - in a real app, you'd have actual payout data
+            winnings += Number(userBet.amount) * 2; // Simple calculation
+          } else {
+            betsLost++;
+            losses += Number(userBet.amount) || 0;
+          }
+        } else if (status === "ACTIVE" || status === "active") {
+          activeBets++;
         }
-      } else if (userBet.bet && userBet.bet.status === "ACTIVE") {
-        activeBets++;
       }
     });
 
+    // Format transaction history
     const betHistory = transactions.map((tx) => ({
       timestamp: tx.timestamp,
       type: tx.type,
@@ -101,6 +88,7 @@ export async function GET(request: NextRequest) {
       title: `Type: ${tx.type}, Amount: ${tx.amount}`,
     }));
 
+    // Compile stats
     const stats = {
       winnings,
       losses,
@@ -113,16 +101,10 @@ export async function GET(request: NextRequest) {
       activeBets,
     };
 
-    return NextResponse.json({
+    return formatApiResponse({
       stats,
       betHistory,
       timeFrame,
     });
-  } catch (error) {
-    console.error("Error fetching user stats:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user statistics" },
-      { status: 500 }
-    );
-  }
+  });
 }

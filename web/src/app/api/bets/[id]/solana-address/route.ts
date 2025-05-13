@@ -1,16 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { generateBetAddress } from "@/lib/solana";
+import { safeApiHandler, ApiError, formatApiResponse } from "@/lib/api-utils";
 
+/**
+ * @route GET /api/bets/:id/solana-address
+ * @description Get Solana addresses for a bet
+ * @param {string} id - The bet ID
+ * @returns {Object} Bet's on-chain account addresses
+ */
 export async function GET(
-  request: NextRequest,
+  _: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+  return safeApiHandler(async () => {
     const betId = params.id;
     
     if (!betId) {
-      return NextResponse.json({ error: "Bet ID is required" }, { status: 400 });
+      return ApiError.badRequest("Bet ID is required");
     }
     
     // Fetch bet from database to get its on-chain reference
@@ -26,14 +33,13 @@ export async function GET(
     });
     
     if (!bet) {
-      return NextResponse.json({ error: "Bet not found" }, { status: 404 });
+      return ApiError.notFound("Bet not found");
     }
     
     let betAccount = bet.onChainBetAddress;
     let escrowAccount = bet.onChainEscrowAddress;
     
     // If we don't have on-chain accounts stored, generate deterministic ones
-    // Note: In production, this should only happen during a migration or if there's an issue
     if (!betAccount || !escrowAccount) {
       // Generate deterministic addresses based on bet ID and creation data
       const seed = `${bet.id}-${bet.createdAt.getTime()}-${bet.creatorId}`;
@@ -52,16 +58,9 @@ export async function GET(
       });
     }
     
-    return NextResponse.json({
+    return formatApiResponse({
       betAccount,
       escrowAccount
     });
-    
-  } catch (error) {
-    console.error("Error fetching Solana addresses:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch Solana addresses" },
-      { status: 500 }
-    );
-  }
+  });
 }

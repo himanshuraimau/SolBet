@@ -1,20 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, ApiError, formatApiResponse } from "@/lib/api-utils";
 
 interface WalletConnectionRequest {
   walletAddress: string;
 }
 
+/**
+ * @route POST /api/auth/wallet/connect
+ * @description Connect a wallet address to create or retrieve a user
+ * @body {Object} body - Contains the wallet address
+ * @returns {Object} User profile information
+ */
 export async function POST(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const body: WalletConnectionRequest = await request.json();
     const { walletAddress } = body;
 
     if (!walletAddress) {
-      return NextResponse.json(
-        { error: "Wallet address is required" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("Wallet address is required");
     }
 
     // Find existing user or create a new one
@@ -53,12 +57,6 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    return NextResponse.json({ user: userProfile });
-  } catch (error) {
-    console.error("Error connecting wallet:", error);
-    return NextResponse.json(
-      { error: "Failed to process wallet connection" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse({ user: userProfile });
+  });
 }

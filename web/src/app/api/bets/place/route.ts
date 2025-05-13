@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, ApiError, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
 interface PlaceBetRequest {
   walletAddress: string;
@@ -9,31 +10,24 @@ interface PlaceBetRequest {
   onChainTxId?: string; // Optional on-chain transaction ID
 }
 
+/**
+ * @route POST /api/bets/place
+ * @description Place a bet on a specific outcome
+ * @body {Object} body - Contains wallet address, bet ID, position, amount, and optional transaction ID
+ * @returns {Object} User bet information
+ */
 export async function POST(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     // Parse the request body
     const body: PlaceBetRequest = await request.json();
     const { walletAddress, betId, position, amount, onChainTxId } = body;
     
     // Validate required fields
-    if (!walletAddress || !betId || !position || !amount) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    if (!betId || !position || !amount) {
+      return ApiError.badRequest("Missing required fields");
     }
 
-    // Find the user by wallet address
-    const user = await prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found. Please connect your wallet first." },
-        { status: 404 }
-      );
-    }
+    const user = await validateUserByWalletAddress(walletAddress);
 
     // Find the bet
     const bet = await prisma.bet.findUnique({
@@ -41,34 +35,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (!bet) {
-      return NextResponse.json(
-        { error: "Bet not found" },
-        { status: 404 }
-      );
+      return ApiError.notFound("Bet not found");
     }
 
     // Validate that the bet is still active
     if (bet.status !== "active") {
-      return NextResponse.json(
-        { error: "This bet is no longer active" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("This bet is no longer active");
     }
 
     // Validate that the bet hasn't expired
     if (new Date(bet.endTime) <= new Date()) {
-      return NextResponse.json(
-        { error: "This bet has expired" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("This bet has expired");
     }
 
     // Validate the bet amount
     if (amount < bet.minimumBet || amount > bet.maximumBet) {
-      return NextResponse.json(
-        { error: `Bet amount must be between ${bet.minimumBet} and ${bet.maximumBet} SOL` },
-        { status: 400 }
-      );
+      return ApiError.badRequest(`Bet amount must be between ${bet.minimumBet} and ${bet.maximumBet} SOL`);
     }
 
     // Check if the user has already placed a bet on this bet
@@ -82,10 +64,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingBet) {
-      return NextResponse.json(
-        { error: "You have already placed a bet on this event" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("You have already placed a bet on this event");
     }
 
     // Create the user bet
@@ -129,7 +108,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Return success response
-    return NextResponse.json({
+    return formatApiResponse({
       success: true,
       userBet: {
         id: userBet.id,
@@ -139,11 +118,5 @@ export async function POST(request: NextRequest) {
         walletAddress,
       },
     });
-  } catch (error) {
-    console.error("Error placing bet:", error);
-    return NextResponse.json(
-      { error: "Failed to place bet" },
-      { status: 500 }
-    );
-  }
+  });
 }

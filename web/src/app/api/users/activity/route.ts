@@ -1,28 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
-// GET /api/users/activity
+/**
+ * @route GET /api/users/activity
+ * @description Get a user's activity history
+ * @param {string} address - The user's wallet address
+ * @param {number} limit - The number of activities to return (default: 5)
+ * @returns {Array} User activities
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
     const limitParam = searchParams.get("limit") || "5";
     const limit = parseInt(limitParam, 10);
-
-    if (!address) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    // Get user from wallet address
-    const user = await prisma.user.findFirst({
-      where: {
-        walletAddress: address,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    
+    const user = await validateUserByWalletAddress(address!);
 
     // Get user transactions
     const transactions = await prisma.transaction.findMany({
@@ -110,12 +104,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(activities);
-  } catch (error) {
-    console.error("Error fetching user activity:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user activity" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse(activities);
+  });
 }

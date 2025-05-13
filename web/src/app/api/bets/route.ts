@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, ApiError, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
 interface CreateBetRequest {
   title: string;
@@ -11,48 +12,35 @@ interface CreateBetRequest {
   creator: string; // Wallet address
 }
 
+/**
+ * @route POST /api/bets
+ * @description Create a new bet
+ * @body {Object} body - Contains bet details
+ * @returns {Object} Created bet information
+ */
 export async function POST(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     // Parse the request body
     const body: CreateBetRequest = await request.json();
     
     // Validate required fields
     if (!body.title || !body.category || !body.creator || !body.endTime) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("Missing required fields");
     }
 
     // Validate amounts
     if (body.minimumBet <= 0 || body.maximumBet <= 0 || body.minimumBet > body.maximumBet) {
-      return NextResponse.json(
-        { error: "Invalid bet amounts" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("Invalid bet amounts");
     }
 
     // Check if endTime is in the future
     const now = new Date();
     const endTime = new Date(body.endTime);
     if (endTime <= now) {
-      return NextResponse.json(
-        { error: "End time must be in the future" },
-        { status: 400 }
-      );
+      return ApiError.badRequest("End time must be in the future");
     }
 
-    // Find the user by wallet address
-    const user = await prisma.user.findUnique({
-      where: { walletAddress: body.creator },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found. Please connect your wallet first." },
-        { status: 404 }
-      );
-    }
+    const user = await validateUserByWalletAddress(body.creator);
 
     // Create the bet in the database
     const bet = await prisma.bet.create({
@@ -105,19 +93,24 @@ export async function POST(request: NextRequest) {
       participants: [],
     };
 
-    return NextResponse.json(formattedBet);
-  } catch (error) {
-    console.error("Error creating bet:", error);
-    return NextResponse.json(
-      { error: "Failed to create bet" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse(formattedBet);
+  });
 }
 
-// Add GET handler to retrieve bets with filtering and pagination
+/**
+ * @route GET /api/bets
+ * @description Get bets with filtering and pagination
+ * @param {string} category - Filter by category
+ * @param {string} status - Filter by status
+ * @param {string} search - Search in title/description
+ * @param {number} page - Page number for pagination
+ * @param {number} limit - Number of items per page
+ * @param {string} wallet - Filter by wallet address
+ * @param {string} tab - Filter by tab (all, ending-soon, trending, my-bets)
+ * @returns {Object} Filtered bets with pagination information
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const status = searchParams.get('status');
@@ -176,7 +169,7 @@ export async function GET(request: NextRequest) {
         ];
       } else {
         // If user not found, return empty result
-        return NextResponse.json({
+        return formatApiResponse({
           bets: [],
           pagination: {
             total: 0,
@@ -252,7 +245,7 @@ export async function GET(request: NextRequest) {
     // Calculate pagination info
     const totalPages = Math.ceil(total / limit);
     
-    return NextResponse.json({
+    return formatApiResponse({
       bets: formattedBets,
       pagination: {
         total,
@@ -261,11 +254,5 @@ export async function GET(request: NextRequest) {
         totalPages,
       }
     });
-  } catch (error) {
-    console.error('Error fetching bets:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch bets' },
-      { status: 500 }
-    );
-  }
+  });
 }

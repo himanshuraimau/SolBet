@@ -1,26 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
-// GET /api/users/bets
+/**
+ * @route GET /api/users/bets
+ * @description Get all bets created by or participated in by a user
+ * @param {string} address - The user's wallet address
+ * @returns {Object} Object containing arrays of active, created, participated, and resolved bets
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
-
-    if (!address) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
-    }
-
-    // Get user from wallet address
-    const user = await prisma.user.findFirst({
-      where: {
-        walletAddress: address,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    
+    const user = await validateUserByWalletAddress(address!);
 
     // Get all bets created by the user
     const createdBets = await prisma.bet.findMany({
@@ -65,10 +58,12 @@ export async function GET(request: NextRequest) {
 
       if (bet.status === "ACTIVE" || bet.status === "active") {
         created.push(betData);
-      } else if (bet.status === "SETTLED" || bet.status === "settled") {
+      } else if (bet.status === "SETTLED" || bet.status === "settled" || 
+                bet.status.startsWith("resolved_")) {
+        const outcome = bet.status.includes("yes") ? "YES" : "NO";
         resolved.push({
           ...betData,
-          outcome: bet.status, // Using status as outcome since outcome field doesn't exist
+          outcome,
         });
       }
     }
@@ -92,15 +87,19 @@ export async function GET(request: NextRequest) {
       if (bet.status === "ACTIVE" || bet.status === "active") {
         participated.push(betData);
         active.push(betData);
-      } else if (bet.status === "SETTLED" || bet.status === "settled") {
-        // Determine winner based on position and yes/no pools ratio
-        const yesWon = bet.yesPool > bet.noPool;
-        const isWinner = (userBet.position === "YES" && yesWon) || 
-                         (userBet.position === "NO" && !yesWon);
+      } else if (bet.status === "SETTLED" || bet.status === "settled" || 
+                bet.status.startsWith("resolved_")) {
+        // Determine outcome based on status
+        const outcomeIsYes = bet.status.includes("yes");
+        const outcome = outcomeIsYes ? "YES" : "NO";
+        
+        // Determine winner based on position and outcome
+        const isWinner = (userBet.position.toUpperCase() === "YES" && outcomeIsYes) || 
+                         (userBet.position.toUpperCase() === "NO" && !outcomeIsYes);
         
         resolved.push({
           ...betData,
-          outcome: yesWon ? "YES" : "NO",
+          outcome,
           payout: isWinner ? Number(userBet.amount) * 2 : 0, // Simple payout calculation
         });
       }
@@ -111,17 +110,11 @@ export async function GET(request: NextRequest) {
       !created.some(createdBet => createdBet.id === activeBet.id)
     );
 
-    return NextResponse.json({
+    return formatApiResponse({
       active: uniqueActive,
       created,
       participated,
       resolved,
     });
-  } catch (error) {
-    console.error("Error fetching user bets:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user bets" },
-      { status: 500 }
-    );
-  }
+  });
 }

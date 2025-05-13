@@ -1,13 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, ApiError, formatApiResponse } from "@/lib/api-utils";
 
+/**
+ * @route GET /api/bets/:id
+ * @description Get a bet by ID with details
+ * @param {string} id - The bet ID
+ * @returns {Object} Bet details including participants
+ */
 export async function GET(
   _: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // Need to await params in dynamic API routes
-    const { id } = await params;
+  return safeApiHandler(async () => {
+    const { id } = params;
 
     // Fetch the bet by ID
     const bet = await prisma.bet.findUnique({
@@ -32,10 +38,7 @@ export async function GET(
     });
 
     if (!bet) {
-      return NextResponse.json(
-        { error: "Bet not found" },
-        { status: 404 }
-      );
+      return ApiError.notFound("Bet not found");
     }
 
     // Format the response
@@ -61,12 +64,6 @@ export async function GET(
       })),
     };
 
-    return NextResponse.json(formattedBet);
-  } catch (error) {
-    console.error("Error fetching bet:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch bet" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse(formattedBet);
+  });
 }

@@ -1,32 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeApiHandler, getPeriodStartDate, formatApiResponse } from "@/lib/api-utils";
 
+/**
+ * @route GET /api/community/leaderboard
+ * @description Get the leaderboard of top users by winnings for a specific time period
+ * @param {string} period - Time period for leaderboard (weekly, monthly, allTime)
+ * @returns {Array} Ranked list of top users
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return safeApiHandler(async () => {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "weekly";
     
     // Determine the start date based on the requested period
     const now = new Date();
-    let startDate = new Date();
-    
-    switch (period) {
-      case "weekly":
-        startDate.setDate(now.getDate() - 7);
-        break;
-      case "monthly":
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-      case "allTime":
-        // Just set to a far past date for "all time"
-        startDate = new Date(0);
-        break;
-      default:
-        startDate.setDate(now.getDate() - 7); // Default to weekly
-    }
+    let startDate = getPeriodStartDate(period);
 
     // Get users with their bet statistics within the time period
-    // First, get all users
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -59,7 +50,7 @@ export async function GET(request: NextRequest) {
     const leaderboard = users.map((user, index) => {
       // Calculate the sum of winnings for the period
       const periodWinnings = user.transactions.reduce(
-        (sum, tx) => sum + tx.amount, 
+        (sum, tx) => sum + Number(tx.amount), 
         0
       );
       
@@ -81,12 +72,6 @@ export async function GET(request: NextRequest) {
       user.rank = index + 1;
     });
 
-    return NextResponse.json(leaderboard);
-  } catch (error) {
-    console.error("Error fetching leaderboard:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch leaderboard" },
-      { status: 500 }
-    );
-  }
+    return formatApiResponse(leaderboard);
+  });
 }
