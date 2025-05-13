@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "../config"
 import type { Bet, BetCategory } from "@/types/bet"
+import { createBet } from "@/lib/api"
 
-// Updated API function
+// Updated interface for creating a bet
 interface CreateBetParams {
   title: string
   description: string
@@ -13,28 +14,15 @@ interface CreateBetParams {
   creator: string
 }
 
-const createBetApi = async (params: CreateBetParams) => {
-  const response = await fetch("/api/bets", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  })
-
-  if (!response.ok) {
-    throw new Error("Failed to create bet")
-  }
-
-  return response.json()
-}
-
-// Hook to create a new bet
+/**
+ * Hook to create a new bet
+ * Handles cache updates after successful bet creation
+ */
 export function useCreateBet() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: createBetApi,
+    mutationFn: createBet,
     onSuccess: (newBet) => {
       // Update the bets list cache
       queryClient.setQueryData<{ bets: Bet[]; totalPages: number } | undefined>(

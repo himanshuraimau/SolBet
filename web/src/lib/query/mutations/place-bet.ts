@@ -1,23 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "../config"
 import type { Bet } from "@/types/bet"
-
-// Updated API function
-const placeBetApi = async (betId: string, position: "yes" | "no", amount: number, walletAddress: string) => {
-  const response = await fetch(`/api/bets/${betId}/place`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ position, amount, walletAddress }),
-  })
-
-  if (!response.ok) {
-    throw new Error("Failed to place bet")
-  }
-
-  return response.json()
-}
+import { placeBet } from "@/lib/api"
 
 interface PlaceBetParams {
   betId: string
@@ -26,13 +10,16 @@ interface PlaceBetParams {
   walletAddress: string
 }
 
-// Hook to place a bet with optimistic updates
+/**
+ * Hook to place a bet with optimistic updates
+ * Updates local cache immediately, then reverts if API call fails
+ */
 export function usePlaceBet() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({ betId, position, amount, walletAddress }: PlaceBetParams) =>
-      placeBetApi(betId, position, amount, walletAddress),
+      placeBet(betId, position, amount, walletAddress),
     // When mutate is called:
     onMutate: async (newBet) => {
       // Cancel any outgoing refetches

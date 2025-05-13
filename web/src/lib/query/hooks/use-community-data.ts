@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
+import { fetchCommunityActivity, fetchLeaderboard } from "@/lib/api";
 
 // Types
-type LeaderboardPeriod = "weekly" | "monthly" | "allTime";
+export type LeaderboardPeriod = "weekly" | "monthly" | "allTime";
 
-interface LeaderboardUser {
+export interface LeaderboardUser {
   rank: number;
   address: string;
   displayName: string | null;
@@ -13,7 +14,7 @@ interface LeaderboardUser {
   winnings: number;
 }
 
-interface ActivityItem {
+export interface ActivityItem {
   id: string;
   type: string;
   title: string;
@@ -27,32 +28,26 @@ interface ActivityItem {
   betId: string | null;
 }
 
-// Fetch community activity feed
+/**
+ * Hook to fetch community activity feed
+ * Displays recent bets, wins, and other platform activities
+ */
 export function useCommunityActivity() {
   return useQuery<ActivityItem[]>({
-    queryKey: ["communityActivity"],
-    queryFn: async () => {
-      const response = await fetch("/api/community/activity");
-      if (!response.ok) {
-        throw new Error("Failed to fetch community activity");
-      }
-      return response.json();
-    },
+    queryKey: queryKeys.community.activity(),
+    queryFn: fetchCommunityActivity,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
-// Fetch leaderboard data
+/**
+ * Hook to fetch leaderboard data
+ * @param period Time period for leaderboard (weekly, monthly, allTime)
+ */
 export function useLeaderboard(period: LeaderboardPeriod = "weekly") {
   return useQuery<LeaderboardUser[]>({
-    queryKey: ["leaderboard", period],
-    queryFn: async () => {
-      const response = await fetch(`/api/community/leaderboard?period=${period}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch leaderboard");
-      }
-      return response.json();
-    },
+    queryKey: queryKeys.community.leaderboard(period),
+    queryFn: () => fetchLeaderboard(period),
     staleTime: 15 * 60 * 1000, // 15 minutes
   });
 }

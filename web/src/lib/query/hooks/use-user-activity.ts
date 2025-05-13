@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
 import { useWalletData } from "@/store/wallet-store";
+import { fetchUserActivity } from "@/lib/api";
 
 export interface UserActivity {
   id: string;
@@ -13,6 +14,7 @@ export interface UserActivity {
 
 /**
  * Hook to fetch user activity from the user's transactions
+ * @param limit Number of activity items to fetch (default: 5)
  */
 export function useUserActivity(limit: number = 5) {
   const { publicKey } = useWalletData();
@@ -20,17 +22,7 @@ export function useUserActivity(limit: number = 5) {
 
   return useQuery<UserActivity[]>({
     queryKey: [...queryKeys.user.activity(), limit],
-    queryFn: async () => {
-      if (!walletAddress) {
-        return [];
-      }
-      
-      const response = await fetch(`/api/users/activity?address=${walletAddress}&limit=${limit}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch user activity");
-      }
-      return response.json();
-    },
+    queryFn: () => walletAddress ? fetchUserActivity(walletAddress, limit) : Promise.resolve([]),
     enabled: !!walletAddress,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });

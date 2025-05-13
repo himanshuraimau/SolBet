@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
 import { useWalletData } from "@/store/wallet-store";
+import { fetchUserTransactions } from "@/lib/api";
 
 export interface Transaction {
   id: string;
@@ -26,17 +27,7 @@ export function useUserTransactions() {
 
   return useQuery<TransactionsResponse>({
     queryKey: queryKeys.user.transactions(),
-    queryFn: async () => {
-      if (!walletAddress) {
-        return { transactions: [] };
-      }
-      
-      const response = await fetch(`/api/users/transactions?address=${walletAddress}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch user transactions");
-      }
-      return response.json();
-    },
+    queryFn: () => walletAddress ? fetchUserTransactions(walletAddress) : Promise.resolve({ transactions: [] }),
     enabled: !!walletAddress,
     staleTime: 30 * 1000, // 30 seconds
   });

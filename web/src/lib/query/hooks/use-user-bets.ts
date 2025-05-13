@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
 import { useWalletData } from "@/store/wallet-store";
+import { fetchUserBets } from "@/lib/api";
 
 // -------------------------------------------------------
 // Types
@@ -42,17 +43,9 @@ export function useUserBets() {
 
   return useQuery<UserBetsResponse>({
     queryKey: queryKeys.user.bets(),
-    queryFn: async () => {
-      if (!walletAddress) {
-        return { active: [], created: [], participated: [], resolved: [] };
-      }
-      
-      const response = await fetch(`/api/users/bets?address=${walletAddress}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch user bets");
-      }
-      return response.json();
-    },
+    queryFn: () => walletAddress 
+      ? fetchUserBets(walletAddress) 
+      : Promise.resolve({ active: [], created: [], participated: [], resolved: [] }),
     enabled: !!walletAddress,
     staleTime: 30 * 1000, // 30 seconds
   });

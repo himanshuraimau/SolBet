@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Clock, TrendingUp, Users } from "lucide-react"
 import Link from "next/link"
 import type { Bet, BetCategory } from "@/types/bet"
-import { useBets } from "@/lib/query/hooks/use-bets"
+import { useBets } from "@/lib/query/hooks";
 import { Skeleton } from "@/components/ui/skeleton"
 
 // Only keep the categories definition

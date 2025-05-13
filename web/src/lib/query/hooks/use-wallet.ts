@@ -2,22 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "../config"
 import type { WalletInfo } from "@/types/wallet"
 import { useWallet } from "@/providers/wallet-provider"
-
-// -------------------------------------------------------
-// API Functions
-// -------------------------------------------------------
-
-/**
- * Fetch wallet transactions for a given wallet address
- * @param walletAddress The wallet address to fetch transactions for
- */
-const fetchWalletTransactionsFromApi = async (walletAddress: string) => {
-  const response = await fetch(`/api/wallet/transactions?address=${walletAddress}`)
-  if (!response.ok) {
-    throw new Error("Failed to fetch wallet transactions")
-  }
-  return response.json()
-}
+import { fetchWalletTransactions } from "@/lib/api"
 
 // -------------------------------------------------------
 // Hooks
@@ -33,7 +18,7 @@ export function useWalletTransactions() {
 
   return useQuery({
     queryKey: queryKeys.wallet.transactions(),
-    queryFn: () => fetchWalletTransactionsFromApi(walletAddress || ""),
+    queryFn: () => walletAddress ? fetchWalletTransactions(walletAddress) : Promise.resolve(null),
     enabled: !!walletAddress,
   })
 }

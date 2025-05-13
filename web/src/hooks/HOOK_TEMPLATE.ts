@@ -3,19 +3,32 @@
 // Copy this template when creating new hook files to maintain consistency.
 
 import { useState, useEffect, useCallback } from 'react';
-// Import other necessary libraries and components
+import { showErrorToast } from '@/lib/error-handling';
 
 // -------------------------------------------------------
 // Types
 // -------------------------------------------------------
 
-interface ExampleParams {
+interface HookParams {
   // Parameters for the hook
 }
 
-interface ExampleResult {
+interface HookResult {
   // Return values from the hook
+  data: any | null;
+  isLoading: boolean;
+  error: Error | null;
+  
+  // Methods provided by the hook
+  performAction: (params: any) => Promise<void>;
+  reset: () => void;
 }
+
+// -------------------------------------------------------
+// Constants
+// -------------------------------------------------------
+
+const SOME_CONSTANT = 'value';
 
 // -------------------------------------------------------
 // Utility functions
@@ -37,10 +50,10 @@ const utilityFunction = (param1: string): number => {
 
 /**
  * Description of what the hook does and when to use it
- * @param param Example parameter
- * @returns The hook's return values
+ * @param params Hook parameters
+ * @returns The hook's return values and methods
  */
-export function useExample(param: ExampleParams): ExampleResult {
+export function useExample(params: HookParams): HookResult {
   // State declarations
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,32 +66,65 @@ export function useExample(param: ExampleParams): ExampleResult {
     return () => {
       // Cleanup logic
     };
-  }, []);
+  }, [/* dependencies */]);
 
   /**
    * Description of this method
-   * @param methodParam Parameter description
+   * @param actionParams Parameter description
    */
-  const exampleMethod = useCallback((methodParam: string) => {
-    // Implementation
+  const performAction = useCallback(async (actionParams: any) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Implementation
+      // setData(result);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      setError(error);
+      showErrorToast(error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [/* dependencies */]);
+
+  /**
+   * Reset the hook state
+   */
+  const reset = useCallback(() => {
+    setData(null);
+    setError(null);
+  }, []);
 
   // Return hook API
   return {
     data,
     isLoading,
     error,
-    exampleMethod,
+    performAction,
+    reset,
   };
 }
 
 // -------------------------------------------------------
-// Additional hooks (if needed)
+// Usage example (comment out in production)
 // -------------------------------------------------------
 
-/**
- * Another hook that's related to the main one
- */
-export function useRelatedExample() {
-  // Implementation
+/*
+function ComponentExample() {
+  const { data, isLoading, error, performAction } = useExample({
+    // params
+  });
+
+  return (
+    <div>
+      {isLoading && <p>Loading...</p>}
+      {error && <p>Error: {error.message}</p>}
+      {data && <p>Data: {JSON.stringify(data)}</p>}
+      <button onClick={() => performAction({ param: 'value' })}>
+        Perform Action
+      </button>
+    </div>
+  );
 }
+*/
