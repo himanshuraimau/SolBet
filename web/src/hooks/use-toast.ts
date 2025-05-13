@@ -8,8 +8,16 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
+// -------------------------------------------------------
+// Constants and Configuration
+// -------------------------------------------------------
+
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
+
+// -------------------------------------------------------
+// Types
+// -------------------------------------------------------
 
 type ToasterToast = ToastProps & {
   id: string
@@ -24,13 +32,6 @@ const actionTypes = {
   DISMISS_TOAST: "DISMISS_TOAST",
   REMOVE_TOAST: "REMOVE_TOAST",
 } as const
-
-let count = 0
-
-function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
-  return count.toString()
-}
 
 type ActionType = typeof actionTypes
 
@@ -56,6 +57,17 @@ interface State {
   toasts: ToasterToast[]
 }
 
+// -------------------------------------------------------
+// Utility Functions
+// -------------------------------------------------------
+
+let count = 0
+
+function genId() {
+  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  return count.toString()
+}
+
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
@@ -73,6 +85,10 @@ const addToRemoveQueue = (toastId: string) => {
 
   toastTimeouts.set(toastId, timeout)
 }
+
+// -------------------------------------------------------
+// State Management
+// -------------------------------------------------------
 
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
@@ -171,6 +187,14 @@ function toast({ ...props }: Toast) {
   }
 }
 
+// -------------------------------------------------------
+// Main Hook Function
+// -------------------------------------------------------
+
+/**
+ * Custom hook for displaying toast notifications
+ * Provides methods to create, update, and dismiss toasts
+ */
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 

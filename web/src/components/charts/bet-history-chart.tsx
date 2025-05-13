@@ -1,12 +1,12 @@
 "use client"
 
-import { useBetHistory } from "@/lib/query/hooks/use-user-data"
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
 import { Skeleton } from "../ui/skeleton"
 import type { TimeFrame } from "@/types/common"
+import { useBettingHistory } from "@/lib/query/hooks/use-user-data"
 
 interface BetHistoryChartProps {
   timeFrame?: TimeFrame;
@@ -16,7 +16,7 @@ export function BetHistoryChart({ timeFrame: externalTimeFrame }: BetHistoryChar
   const [internalTimeFrame, setInternalTimeFrame] = useState<TimeFrame>("7d")
   // Use the external timeFrame if provided, otherwise use the internal state
   const timeFrame = externalTimeFrame || internalTimeFrame
-  const { data, isLoading } = useBetHistory(timeFrame)
+  const { data, isLoading } = useBettingHistory(timeFrame)
 
   const handleTimeFrameChange = (value: string) => {
     setInternalTimeFrame(value as TimeFrame)
@@ -37,7 +37,7 @@ export function BetHistoryChart({ timeFrame: externalTimeFrame }: BetHistoryChar
   }
 
   // Group bets by date and count them
-  const aggregatedData = data.history.reduce((acc, bet) => {
+  const aggregatedData = data.reduce((acc, bet) => {
     const date = new Date(bet.timestamp)
     let dateKey: string
     

@@ -3,7 +3,14 @@ import { queryKeys } from "../config"
 import type { WalletInfo } from "@/types/wallet"
 import { useWallet } from "@/providers/wallet-provider"
 
-// Updated API function
+// -------------------------------------------------------
+// API Functions
+// -------------------------------------------------------
+
+/**
+ * Fetch wallet transactions for a given wallet address
+ * @param walletAddress The wallet address to fetch transactions for
+ */
 const fetchWalletTransactionsFromApi = async (walletAddress: string) => {
   const response = await fetch(`/api/wallet/transactions?address=${walletAddress}`)
   if (!response.ok) {
@@ -12,7 +19,14 @@ const fetchWalletTransactionsFromApi = async (walletAddress: string) => {
   return response.json()
 }
 
-// Hook to fetch wallet transactions
+// -------------------------------------------------------
+// Hooks
+// -------------------------------------------------------
+
+/**
+ * Hook to fetch wallet transactions
+ * @returns Query result containing wallet transactions
+ */
 export function useWalletTransactions() {
   const { wallet } = useWallet()
   const walletAddress = wallet?.address
@@ -24,7 +38,10 @@ export function useWalletTransactions() {
   })
 }
 
-// Hook to refresh wallet balance
+/**
+ * Hook to refresh wallet balance
+ * @returns Mutation function to trigger balance refresh
+ */
 export function useRefreshWalletBalance() {
   const queryClient = useQueryClient()
   const { wallet, refreshBalance } = useWallet()

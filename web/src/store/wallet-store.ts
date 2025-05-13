@@ -6,6 +6,10 @@ import { WalletTransaction, UserProfile } from '@/types/wallet';
 import { fetchUserProfile, updateProfile, fetchWalletActivity } from '@/lib/api/user';
 import { useWallet } from '@solana/wallet-adapter-react';
 
+// -------------------------------------------------------
+// Types
+// -------------------------------------------------------
+
 interface WalletState {
   balance: number;
   transactions: WalletTransaction[];
@@ -23,6 +27,10 @@ interface WalletActions {
   setIsLoading: (isLoading: boolean) => void;
   resetState: () => void;
 }
+
+// -------------------------------------------------------
+// Initial state and Store creation
+// -------------------------------------------------------
 
 // Initial state
 const initialState: WalletState = {
@@ -66,7 +74,15 @@ export const useWalletStore = create<WalletState & WalletActions>()(
   )
 );
 
-// Standalone function to get wallet data - no hooks inside
+// -------------------------------------------------------
+// Utility functions
+// -------------------------------------------------------
+
+/**
+ * Get the balance of a Solana wallet
+ * @param publicKey The public key of the wallet
+ * @returns The balance in SOL
+ */
 const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {
   try {
     // Get connection to Solana network
@@ -81,9 +97,15 @@ const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {
   }
 };
 
-// Custom hook to use wallet data with Solana wallet connection
+// -------------------------------------------------------
+// Custom hook
+// -------------------------------------------------------
+
+/**
+ * Custom hook to access and update wallet data
+ * Uses Solana wallet adapter and zustand store
+ */
 export function useWalletData() {
-  // Use the Solana wallet adapter hook instead of window.solana
   const { publicKey, connected } = useWallet();
   const [mounted, setMounted] = useState(false);
   
@@ -115,7 +137,9 @@ export function useWalletData() {
     }
   }, [connected, resetState]);
 
-  // Create a stable refreshBalance function with useCallback
+  /**
+   * Refresh wallet balance and transaction history
+   */
   const refreshBalance = useCallback(async () => {
     if (!publicKey || !connected) return;
     
@@ -140,7 +164,9 @@ export function useWalletData() {
     }
   }, [publicKey, connected, setBalance, setTransactions, setIsLoading]);
 
-  // Function to update user profile
+  /**
+   * Fetch user profile from the API
+   */
   const updateUserProfile = useCallback(async () => {
     if (!publicKey || !connected) return;
     
@@ -155,7 +181,11 @@ export function useWalletData() {
     }
   }, [publicKey, connected, setUserProfile, setIsProfileLoading]);
 
-  // Update profile with new data
+  /**
+   * Update user profile with new data
+   * @param profileData Partial user profile data to update
+   * @returns True if update was successful, false otherwise
+   */
   const updateProfileData = useCallback(async (profileData: Partial<UserProfile>) => {
     if (!publicKey || !connected) return false;
     

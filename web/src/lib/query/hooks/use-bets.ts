@@ -6,7 +6,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Bet } from "@/types/bet";
 
-// Updated API functions
+// -------------------------------------------------------
+// API Functions
+// -------------------------------------------------------
+/**
+ * Fetch a list of bets from the API with optional filtering
+ * @param category Optional category filter
+ * @param status Optional status filter
+ * @param page Page number (default: 1)
+ * @param limit Number of bets per page (default: 10)
+ */
 const fetchBetsFromApi = async (category?: BetCategory, status?: BetStatus, page = 1, limit = 10) => {
   const params = new URLSearchParams()
   if (category) params.append("category", category)
@@ -21,6 +30,10 @@ const fetchBetsFromApi = async (category?: BetCategory, status?: BetStatus, page
   return response.json()
 }
 
+/**
+ * Fetch a single bet by ID
+ * @param id The bet ID
+ */
 const fetchBetByIdFromApi = async (id: string) => {
   const response = await fetch(`/api/bets/${id}`)
   if (!response.ok) {
@@ -29,7 +42,14 @@ const fetchBetByIdFromApi = async (id: string) => {
   return response.json()
 }
 
-// Hook to fetch a list of bets with optional filtering
+// -------------------------------------------------------
+// Hooks
+// -------------------------------------------------------
+/**
+ * Hook to fetch a list of bets with optional filtering
+ * @param category Optional category filter
+ * @param status Optional status filter
+ */
 export function useBets(category?: BetCategory, status?: BetStatus) {
   return useQuery({
     queryKey: queryKeys.bets.list(JSON.stringify({ category, status })),
@@ -37,7 +57,11 @@ export function useBets(category?: BetCategory, status?: BetStatus) {
   })
 }
 
-// Hook to fetch a single bet by ID
+/**
+ * Hook to fetch a single bet by ID
+ * Includes both API and Solana blockchain data
+ * @param betId The bet ID
+ */
 export const useBet = (betId: string) => {
   const { toast } = useToast();
   const { publicKey } = useWallet();
@@ -51,17 +75,7 @@ export const useBet = (betId: string) => {
     refetch
   } = useQuery({
     queryKey: queryKeys.bets.detail(betId),
-    queryFn: async () => {
-      const response = await fetch(`/api/bets/${betId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch bet");
-      }
-      
-      const data = await response.json();
-      return data as Bet;
-    },
+    queryFn: () => fetchBetByIdFromApi(betId),
     enabled: !!betId,
     retry: 3,
     retryDelay: 1000,
@@ -80,11 +94,11 @@ export const useBet = (betId: string) => {
 
   // Check if the current user has already placed a bet
   const hasUserParticipated = !!data?.participants.find(
-    (p) => p.walletAddress === walletAddress
+    (p: any) => p.walletAddress === walletAddress
   );
 
   const userPosition = data?.participants.find(
-    (p) => p.walletAddress === walletAddress
+    (p: any) => p.walletAddress === walletAddress
   )?.position;
 
   return {
@@ -98,7 +112,12 @@ export const useBet = (betId: string) => {
   };
 };
 
-// Hook for infinite scrolling of bets
+/**
+ * Hook for infinite scrolling of bets
+ * Used for paginated bet lists
+ * @param category Optional category filter
+ * @param status Optional status filter
+ */
 export function useInfiniteBets(category?: BetCategory, status?: BetStatus) {
   return useInfiniteQuery({
     queryKey: queryKeys.bets.list(JSON.stringify({ category, status, infinite: true })),

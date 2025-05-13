@@ -18,6 +18,7 @@ import { Bet } from "@/types/bet"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { useSolanaBet } from "@/hooks/bet/use-solana-bet"
 import { queryKeys } from "@/lib/query/config"
+import { getSolanaErrorMessage, logSolanaError } from "@/lib/solana-errors"
 
 interface PlaceBetFormProps {
   bet: Bet
@@ -188,11 +189,24 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
           errorMessage += "\nDetails: " + logs.join("\n");
         }
         
+        // Provide more helpful message based on error type
+        let userErrorMessage = "Blockchain transaction failed. Please try again.";
+        
+        if (err.name === "WalletSendTransactionError") {
+          userErrorMessage = "Your wallet declined the transaction. Please check your wallet and try again.";
+        } else if (err.name === "WalletConnectionError") {
+          userErrorMessage = "Could not connect to your wallet. Please check your connection and try again.";
+        } else if (err.name === "WalletTimeoutError") {
+          userErrorMessage = "Wallet operation timed out. Please try again.";
+        } else if (errorMessage.includes("insufficient funds")) {
+          userErrorMessage = "Your wallet has insufficient funds for this transaction.";
+        }
+        
         // Show cleaner error message to the user
-        setError(`Blockchain transaction failed. Please try again.`);
+        setError(userErrorMessage);
         toast({
           title: "Transaction Failed",
-          description: "The Solana transaction could not be completed. Please try again later.",
+          description: userErrorMessage,
           variant: "destructive",
         });
         setIsSolanaLoading(false);

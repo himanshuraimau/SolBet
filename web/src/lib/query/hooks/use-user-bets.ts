@@ -2,6 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
 import { useWalletData } from "@/store/wallet-store";
 
+// -------------------------------------------------------
+// Types
+// -------------------------------------------------------
+
 export type BetStatus = "ACTIVE" | "CREATED" | "PARTICIPATED" | "RESOLVED";
 
 export interface UserBet {
@@ -24,8 +28,13 @@ export interface UserBetsResponse {
   resolved: UserBet[];
 }
 
+// -------------------------------------------------------
+// Main Hook
+// -------------------------------------------------------
+
 /**
  * Hook to fetch user's bets grouped by status
+ * @returns Query result containing user's bets categorized by status
  */
 export function useUserBets() {
   const { publicKey } = useWalletData();

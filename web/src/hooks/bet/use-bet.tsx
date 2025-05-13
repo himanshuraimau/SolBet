@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useSolanaBet } from './use-solana-bet';
-import { useWalletStore } from '../../store/wallet-store';
 import { toast } from '../use-toast';
-import { useQuery } from '@tanstack/react-query';
-import { BetData } from './use-solana-bet';
-import { queryKeys } from '@/lib/query/config';
+
+// -------------------------------------------------------
+// Types
+// -------------------------------------------------------
 
 export type BetPosition = 'yes' | 'no';
 
@@ -24,6 +24,14 @@ export interface PlaceBetParams {
   position: BetPosition;
 }
 
+// -------------------------------------------------------
+// Main Hook
+// -------------------------------------------------------
+
+/**
+ * Hook for bet-related actions with UI interactions
+ * Wraps the lower-level Solana bet hook with additional UI feedback
+ */
 export const useBet = () => {
   const { 
     createBet: createSolanaBet, 
@@ -38,7 +46,13 @@ export const useBet = () => {
   const { connected } = wallet;
   const [isLoading, setIsLoading] = useState(false);
 
-  // Create a new bet
+  // -------------------------------------------------------
+  // Bet Actions
+  // -------------------------------------------------------
+
+  /**
+   * Create a new bet with UI feedback
+   */
   const createBet = async (params: CreateBetParams) => {
     if (!connected) {
       toast({
@@ -57,10 +71,6 @@ export const useBet = () => {
         minBet: params.minBet,
         maxBet: params.maxBet,
       });
-
-      // Here you would typically store additional metadata about the bet
-      // in your database or other storage. For now, we're just returning
-      // the Solana transaction result.
       
       return result;
     } catch (error) {
@@ -71,7 +81,9 @@ export const useBet = () => {
     }
   };
 
-  // Place a bet
+  /**
+   * Place a bet with UI feedback
+   */
   const placeBet = async (params: PlaceBetParams) => {
     if (!connected) {
       toast({
@@ -111,7 +123,9 @@ export const useBet = () => {
     }
   };
 
-  // Resolve a bet (creator only)
+  /**
+   * Resolve a bet (creator only) with UI feedback
+   */
   const resolveBet = async (betId: string, outcome: BetPosition) => {
     if (!connected) {
       toast({
@@ -134,33 +148,11 @@ export const useBet = () => {
       
       const { betAccount, escrowAccount } = await accountsResponse.json();
 
-      // Verify the user is the creator of the bet using on-chain data
-      const betData = await useSolanaBetData(betAccount).refetch();
-      
-      if (!betData.data) {
-        toast({
-          title: 'Bet not found',
-          description: 'The bet you are trying to resolve could not be found on the blockchain',
-          variant: 'destructive',
-        });
-        return null;
-      }
-
-      // Verify the user is the creator of the bet
-      if (wallet.publicKey?.toBase58() !== betData.data.creator) {
-        toast({
-          title: 'Not authorized',
-          description: 'Only the creator of the bet can resolve it',
-          variant: 'destructive',
-        });
-        return null;
-      }
-
       // Using Solana smart contract for resolving a bet
       const result = await settleSolanaBet.mutateAsync({
         betAccount: betAccount,
         escrowAccount: escrowAccount,
-        outcome,
+        outcome: outcome,
       });
       
       return result;
@@ -172,7 +164,9 @@ export const useBet = () => {
     }
   };
 
-  // Withdraw funds from a bet
+  /**
+   * Withdraw funds from a bet with UI feedback
+   */
   const withdrawFunds = async (betId: string, userBetAccount: string) => {
     if (!connected) {
       toast({
@@ -185,7 +179,7 @@ export const useBet = () => {
 
     setIsLoading(true);
     try {
-      // First, fetch the Solana addresses for this bet from our API
+      // Fetch the Solana addresses for this bet from our API
       const accountsResponse = await fetch(`/api/bets/${betId}/solana-address`);
       
       if (!accountsResponse.ok) {
@@ -194,8 +188,8 @@ export const useBet = () => {
       }
       
       const { betAccount, escrowAccount } = await accountsResponse.json();
-      
-      // Using Solana smart contract directly for withdrawing funds
+
+      // Using Solana smart contract for withdrawing funds
       const result = await withdrawSolana.mutateAsync({
         betAccount: betAccount,
         escrowAccount: escrowAccount,
@@ -211,64 +205,27 @@ export const useBet = () => {
     }
   };
 
-  // Fetch all bets (you might want to implement pagination)
-  const useAllBets = () => {
-    return useQuery({
-      queryKey: queryKeys.bets.all,
-      queryFn: async () => {
-        // This would typically make a call to your backend or a decentralized storage solution
-        // to get all available bets. For now, this is a placeholder.
-        return [];
-      },
-    });
-  };
+  // -------------------------------------------------------
+  // Bet Data
+  // -------------------------------------------------------
 
-  // Fetch a single bet
+  /**
+   * Fetch a single bet - delegating to useSolanaBetData
+   */
   const useBetData = (betId?: string) => {
     return useSolanaBetData(betId);
   };
 
-  // Fetch bets created by the current user
-  const useUserCreatedBets = () => {
-    const { publicKey } = wallet;
-    
-    return useQuery({
-      queryKey: queryKeys.user.bets(),
-      queryFn: async () => {
-        if (!publicKey) return [];
-        // This would typically make a call to your backend or a decentralized storage solution
-        // to get bets created by the current user. For now, this is a placeholder.
-        return [];
-      },
-      enabled: !!publicKey,
-    });
-  };
-
-  // Fetch bets where the current user has participated
-  const useUserParticipatedBets = () => {
-    const { publicKey } = wallet;
-    
-    return useQuery({
-      queryKey: queryKeys.user.bets(),
-      queryFn: async () => {
-        if (!publicKey) return [];
-        // This would typically make a call to your backend or a decentralized storage solution
-        // to get bets where the current user has participated. For now, this is a placeholder.
-        return [];
-      },
-      enabled: !!publicKey,
-    });
-  };
+  // -------------------------------------------------------
+  // Return hook interface
+  // -------------------------------------------------------
 
   return {
     createBet,
     placeBet,
     resolveBet,
     withdrawFunds,
-    useAllBets,
     useBetData,
-    useUserCreatedBets,
-    useUserParticipatedBets,
     isLoading: isLoading || isSolanaLoading,
   };
 };
