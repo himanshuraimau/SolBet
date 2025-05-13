@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { toast } from '../../hooks/use-toast';
 import { 
   initializeBet, 
@@ -20,6 +20,7 @@ import {
   TransactionInstruction 
 } from "@solana/web3.js";
 import * as buffer from "buffer";
+import type { BetStatus } from "@/types/bet";
 
 // -------------------------------------------------------
 // Types
@@ -87,6 +88,7 @@ const getProgramId = () => {
  * Provides functions to create, participate in, and resolve bets
  */
 export const useSolanaBet = () => {
+  const { connection } = useConnection();
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);

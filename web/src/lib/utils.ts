@@ -46,3 +46,34 @@ export function calculateOdds(yesPool: number, noPool: number, position: "yes" |
     return totalPool / noPool
   }
 }
+
+/**
+ * Calculate time remaining until a deadline
+ * @param deadline - The target date to calculate time remaining until
+ * @returns Object containing days, hours, minutes, and seconds remaining
+ */
+export function calculateTimeLeft(deadline: Date | string | number): {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+} {
+  const difference = +new Date(deadline) - +new Date();
+  
+  // Return all zeros if the deadline has passed
+  if (difference <= 0) {
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0
+    };
+  }
+  
+  return {
+    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+    minutes: Math.floor((difference / 1000 / 60) % 60),
+    seconds: Math.floor((difference / 1000) % 60)
+  };
+}

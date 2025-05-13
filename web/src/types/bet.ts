@@ -1,33 +1,40 @@
+export type BetStatus = "ACTIVE" | "PENDING" | "RESOLVED" | "EXPIRED" | "CANCELLED";
+
+export type BetCategory = "SPORTS" | "POLITICS" | "CRYPTO" | "ENTERTAINMENT" | "OTHER";
+
 export interface Bet {
-  id: string
-  title: string
-  description: string
-  creator: string
-  creatorName?: string
-  category: BetCategory
-  yesPool: number
-  noPool: number
-  totalPool?: number
-  minimumBet: number
-  maximumBet: number
-  startTime: Date | string
-  endTime: Date | string
-  status: BetStatus
-  participants?: Participant[]
-  participantCount: number
-  daysLeft: number
+  id: string;
+  title: string;
+  description: string;
+  category: BetCategory;
+  creator: string;
+  yesPool: number;
+  noPool: number;
+  totalPool: number;
+  createdAt: string;
+  expiresAt: string;
+  status: BetStatus;
+  outcome?: "yes" | "no";
+  participants: BetParticipant[];
+  minBet?: number;
+  maxBet?: number;
 }
 
-export type BetCategory = "sports" | "politics" | "entertainment" | "crypto" | "weather" | "other"
-export type BetStatus = "active" | "closed" | "resolved_yes" | "resolved_no" | "disputed"
+export interface BetParticipant {
+  walletAddress: string;
+  position: "yes" | "no";
+  amount: number;
+  timestamp: Date;
+}
 
-export interface Participant {
-  walletAddress: string
-  position: "yes" | "no"
-  amount: number
-  timestamp: Date
-  onChainUserBetAccount?: string // Solana address for the user's bet account
-  claimed?: boolean // Whether the user has claimed their winnings/funds
+export interface CreateBetParams {
+  title: string;
+  description: string;
+  category: BetCategory;
+  expiresAt: Date;
+  walletAddress: string;
+  minBet?: number;
+  maxBet?: number;
 }
 
 export interface PaginationInfo {
