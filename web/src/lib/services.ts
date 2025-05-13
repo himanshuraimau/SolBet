@@ -283,6 +283,7 @@ function mapPrismaBetToAppBet(bet: any): Bet {
   // Get participant count
   const participantCount = bet.participants ? bet.participants.length : 0;
 
+  // Create a bet object with only the properties that exist in the Bet type
   return {
     id: bet.id,
     title: bet.title,
@@ -291,19 +292,20 @@ function mapPrismaBetToAppBet(bet: any): Bet {
     category: bet.category as BetCategory,
     yesPool: bet.yesPool,
     noPool: bet.noPool,
-    minimumBet: bet.minimumBet,
-    maximumBet: bet.maximumBet,
-    startTime: bet.startTime,
-    endTime: bet.endTime,
+    totalPool: bet.yesPool + bet.noPool,
+    // Map database fields to Bet interface fields
+    createdAt: bet.createdAt.toISOString(),
+    expiresAt: bet.endTime.toISOString(),
     status: bet.status as BetStatus,
+    minBet: bet.minimumBet,
+    maxBet: bet.maximumBet,
     participants: bet.participants.map((p: any) => ({
       walletAddress: p.userId, // This should be mapped to wallet address in a real app
       position: p.position as 'yes' | 'no',
       amount: p.amount,
       timestamp: p.timestamp,
     })),
-    // Add the missing properties
-    participantCount: participantCount,
-    daysLeft: daysLeft
+    daysLeft,
+    participantCount
   };
 }

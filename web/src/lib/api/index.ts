@@ -68,9 +68,9 @@ export const createBet = async (params: {
   title: string;
   description: string;
   category: BetCategory;
-  minimumBet: number;
-  maximumBet: number;
-  endTime: Date;
+  minBet: number;
+  maxBet: number;
+  expiresAt: Date;
   creator: string;
 }) => {
   const response = await fetch("/api/bets", {

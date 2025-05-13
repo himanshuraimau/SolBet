@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
-import { fetchCommunityActivity, fetchLeaderboard } from "@/lib/api";
+import { fetchCommunityActivity, fetchLeaderboard } from "@/lib/api/index";
 
 // Types
 export type LeaderboardPeriod = "weekly" | "monthly" | "allTime";

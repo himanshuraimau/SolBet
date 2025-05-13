@@ -1,16 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "../config"
 import type { Bet, BetCategory } from "@/types/bet"
-import { createBet } from "@/lib/api"
+import { createBet } from "@/lib/api/index"
 
 // Updated interface for creating a bet
 interface CreateBetParams {
   title: string
   description: string
   category: BetCategory
-  minimumBet: number
-  maximumBet: number
-  endTime: Date
+  minBet: number
+  maxBet: number
+  expiresAt: Date
   creator: string
 }
 

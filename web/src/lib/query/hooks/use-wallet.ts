@@ -38,7 +38,7 @@ export function useRefreshWalletBalance() {
     onSuccess: () => {
       // Update the wallet info if it exists in the cache
       queryClient.setQueryData<{ balance: number } | undefined>(
-        queryKeys.wallet.all, 
+        queryKeys.wallet.all(), 
         (oldData) => {
           if (!oldData) return undefined
           return {

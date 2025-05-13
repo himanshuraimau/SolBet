@@ -23,7 +23,7 @@ export function BetCard({ bet }: BetCardProps) {
           </Badge>
           <div className="flex items-center text-sm text-muted-foreground">
             <Clock className="mr-1 h-3 w-3" />
-            {bet.daysLeft > 0 ? `${bet.daysLeft} days left` : "Ended"}
+            {(bet.daysLeft ?? 0) > 0 ? `${bet.daysLeft} days left` : "Ended"}
           </div>
         </div>
         <CardTitle className="line-clamp-2 mt-2 text-lg">{bet.title}</CardTitle>
@@ -49,7 +49,7 @@ export function BetCard({ bet }: BetCardProps) {
             </div>
             <div className="flex items-center">
               <Users className="mr-1 h-4 w-4 text-accent-blue" />
-              <span>{bet.participantCount} participants</span>
+              <span>{bet.participantCount ?? 0} participants</span>
             </div>
           </div>
         </div>
@@ -58,10 +58,10 @@ export function BetCard({ bet }: BetCardProps) {
         <Button 
           asChild 
           className="w-full bg-primary-gradient text-text-plum"
-          disabled={bet.status !== "active" || new Date(bet.endTime) < new Date()}
+          disabled={bet.status !== "ACTIVE" || new Date(bet.expiresAt) < new Date()}
         >
           <Link href={`/bet/${bet.id}`}>
-            {bet.status === "active" && new Date(bet.endTime) >= new Date() 
+            {bet.status === "ACTIVE" && new Date(bet.expiresAt) >= new Date() 
               ? "Place Bet" 
               : "View Bet"}
           </Link>

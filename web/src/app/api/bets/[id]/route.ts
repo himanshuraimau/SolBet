@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   return safeApiHandler(async () => {
-    const { id } = params;
+    const { id } = await params;
 
     // Fetch the bet by ID
     const bet = await prisma.bet.findUnique({

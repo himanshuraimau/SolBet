@@ -18,6 +18,8 @@ export interface Bet {
   participants: BetParticipant[];
   minBet?: number;
   maxBet?: number;
+  daysLeft?: number;
+  participantCount?: number;
 }
 
 export interface BetParticipant {

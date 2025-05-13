@@ -12,7 +12,7 @@ import { useBets } from "@/lib/query/hooks";
 import { Skeleton } from "@/components/ui/skeleton"
 
 // Only keep the categories definition
-const CATEGORIES: BetCategory[] = ["crypto", "sports", "politics", "entertainment", "other"]
+const CATEGORIES: BetCategory[] = ["CRYPTO", "SPORTS", "POLITICS", "ENTERTAINMENT", "OTHER"]
 
 // Utility function to calculate time remaining
 const getTimeRemaining = (endTime: Date) => {
@@ -32,7 +32,7 @@ export default function FeaturedBets() {
   // Use the useBets hook to fetch real data
   const { data, isLoading, error } = useBets(
     activeCategory === "all" ? undefined : activeCategory,
-    "active" // Only show active bets
+    "ACTIVE" // Only show active bets
   )
 
   // Handle the filtered bets based on category

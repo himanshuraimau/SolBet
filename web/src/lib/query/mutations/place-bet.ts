@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "../config"
 import type { Bet } from "@/types/bet"
-import { placeBet } from "@/lib/api"
+import { placeBet } from "@/lib/api/index"
 
 interface PlaceBetParams {
   betId: string

@@ -59,7 +59,7 @@ const placeBetInDb = async (params: {
 export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
   const { publicKey, connected } = useWallet()
   const [position, setPosition] = useState<"yes" | "no">("yes")
-  const [amount, setAmount] = useState<number>(bet.minimumBet)
+  const [amount, setAmount] = useState<number>(bet.minBet ?? 0.1)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
@@ -126,7 +126,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
 
   const handleAmountChange = (value: number) => {
     // Ensure amount is within min/max range
-    const newAmount = Math.max(bet.minimumBet, Math.min(bet.maximumBet, value))
+    const newAmount = Math.max(bet.minBet ?? 0.1, Math.min(bet.maxBet ?? 10, value))
     setAmount(newAmount)
   }
 
@@ -246,7 +246,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
   }
 
   // Check if bet is still active
-  const isBetActive = bet.status === "active" && new Date(bet.endTime) > new Date()
+  const isBetActive = bet.status === "ACTIVE" && new Date(bet.expiresAt) > new Date()
   
   if (!isBetActive) {
     return (
@@ -257,7 +257,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
         </CardHeader>
         <CardContent className="text-center py-6">
           <p>
-            {bet.status !== "active" 
+            {bet.status !== "ACTIVE" 
               ? "This bet has been closed or resolved." 
               : "The betting period for this event has ended."}
           </p>
@@ -363,9 +363,9 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
               <Input
                 type="number"
                 value={amount}
-                onChange={(e) => handleAmountChange(Number.parseFloat(e.target.value) || bet.minimumBet)}
-                min={bet.minimumBet}
-                max={bet.maximumBet}
+                onChange={(e) => handleAmountChange(Number.parseFloat(e.target.value) || bet.minBet || 0.1)}
+                min={bet.minBet ?? 0.1}
+                max={bet.maxBet ?? 10}
                 step={0.1}
                 className="font-mono"
               />
@@ -374,16 +374,16 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
 
             <Slider
               value={[amount]}
-              min={bet.minimumBet}
-              max={bet.maximumBet}
+              min={bet.minBet ?? 0.1}
+              max={bet.maxBet ?? 10}
               step={0.1}
               onValueChange={handleSliderChange}
               className="py-4"
             />
 
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Min: {formatSOL(bet.minimumBet)}</span>
-              <span>Max: {formatSOL(bet.maximumBet)}</span>
+              <span>Min: {formatSOL(bet.minBet ?? 0.1)}</span>
+              <span>Max: {formatSOL(bet.maxBet ?? 10)}</span>
             </div>
           </div>
 

@@ -27,12 +27,12 @@ export default function BetPage() {
   const isCreator = bet?.creator === publicKey?.toString()
   
   // Check if user has participated in this bet
-  const hasUserParticipated = bet?.participants?.some(p => 
+  const hasUserParticipated = bet?.participants?.some((p: { walletAddress: string | undefined }) => 
     p.walletAddress === publicKey?.toString()
   ) || false
   
   // Find user's bet details if they've participated
-  const userBet = bet?.participants?.find(p => 
+  const userBet = bet?.participants?.find((p: { walletAddress: string | undefined }) => 
     p.walletAddress === publicKey?.toString()
   )
   

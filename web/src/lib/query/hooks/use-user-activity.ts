@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
 import { useWalletData } from "@/store/wallet-store";
-import { fetchUserActivity } from "@/lib/api";
+import { fetchUserActivity } from "@/lib/api/index";
 
 export interface UserActivity {
   id: string;
