@@ -154,7 +154,9 @@ export function useWalletData() {
       const txHistory = await fetchWalletActivity(publicKey.toString());
       const typedTransactions = txHistory.map(tx => ({
         ...tx,
-        type: tx.type as unknown as WalletTransaction['type']
+        type: tx.type as WalletTransaction['type'],
+        // Ensure status is always set, with 'completed' as fallback
+        status: (tx.status || 'completed') as WalletTransaction['status']
       }));
       setTransactions(typedTransactions);
     } catch (error) {

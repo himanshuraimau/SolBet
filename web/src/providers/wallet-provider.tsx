@@ -7,7 +7,6 @@ import {
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl, Cluster } from "@solana/web3.js";
-import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import AuthStateProvider from "./auth-provider";
 
 // Import wallet adapters
@@ -16,9 +15,7 @@ import {
   SolflareWalletAdapter,
   TorusWalletAdapter,
   LedgerWalletAdapter,
-
   CoinbaseWalletAdapter,
-
   MathWalletAdapter,
   CloverWalletAdapter,
   TrustWalletAdapter,
@@ -26,9 +23,6 @@ import {
 
 // Import wallet adapter styles
 import "@solana/wallet-adapter-react-ui/styles.css";
-
-// Create a React Query client
-const queryClient = new QueryClient();
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -44,9 +38,7 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
   const wallets = useMemo(() => [
     new PhantomWalletAdapter(),
     new SolflareWalletAdapter(),
-
     new CoinbaseWalletAdapter(),
-
     new LedgerWalletAdapter(),
     new TorusWalletAdapter(),
     new MathWalletAdapter(),
@@ -55,17 +47,15 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
   ], []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConnectionProvider endpoint={endpoint}>
-        <SolanaWalletProvider wallets={wallets} autoConnect>
-          <WalletModalProvider>
-            <AuthStateProvider>
-              {children}
-            </AuthStateProvider>
-          </WalletModalProvider>
-        </SolanaWalletProvider>
-      </ConnectionProvider>
-    </QueryClientProvider>
+    <ConnectionProvider endpoint={endpoint}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <AuthStateProvider>
+            {children}
+          </AuthStateProvider>
+        </WalletModalProvider>
+      </SolanaWalletProvider>
+    </ConnectionProvider>
   );
 };
 

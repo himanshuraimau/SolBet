@@ -1,5 +1,5 @@
 // utilities for debugging Solana transactions
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 
 /**
  * Extracts and formats useful information from a Solana transaction error

@@ -1,25 +1,58 @@
 # SolBet Web Application
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the front-end application for SolBet, a decentralized betting platform on Solana.
 
 ## Code Structure
 
-The SolBet web application follows a structured organization to ensure readability and maintainability.
+### Core Components
 
-### Directories
+- `providers/` - React context providers for global state and functionality
+  - `wallet-provider.tsx` - Solana wallet adapter integration
+  - `auth-provider.tsx` - User authentication state management
+  - `query-provider.tsx` - React Query client provider
 
-- **app**: Next.js app router pages and layouts
-- **components**: UI components organized by feature
-- **hooks**: Custom React hooks
-- **lib**: Utility functions, services, and API clients
-- **providers**: React context providers
-- **store**: Global state management using Zustand
-- **types**: TypeScript type definitions
-- **prisma**: Database schema and migrations
+### Utilities
 
-### Code Organization
+- `lib/` - Utility functions and services
+  - `date-utils.ts` - Date formatting and calculation functions
+  - `utils.ts` - General utility functions
+  - `wallet.ts` - Wallet address formatting utilities
+  - `solana.ts` - Solana blockchain interaction functions
+  - `solana-program.ts` - SolBet program-specific constants
+  - `solana-errors.ts` - Error handling for Solana transactions
+  - `solana-debug.ts` - Debugging utilities for Solana transactions
+  - `services.ts` - Backend service functions
+  - `prisma.ts` - Database client setup
+  - `error-handling.ts` - Application-wide error handling
 
-We follow a consistent structure within files to improve readability and maintainability. See the [Code Style Guide](./docs/CODE_STYLE_GUIDE.md) for details.
+### State Management
+
+- `store/` - Global state management using Zustand
+  - `wallet-store.ts` - Wallet-related state and actions
+
+## Interacting with Solana
+
+The application interacts with the Solana blockchain in several ways:
+
+1. **Wallet Connection**: Using Solana Wallet Adapter for connecting to various wallets
+2. **Transaction Signing**: For creating and placing bets
+3. **Account Management**: For tracking bet status and user positions
+
+## Error Handling
+
+The application has a comprehensive error handling system:
+
+- `error-handling.ts` provides centralized error handling
+- `solana-errors.ts` specializes in Solana transaction errors
+- `solana-debug.ts` offers debugging tools for blockchain interactions
+
+## Development Guidelines
+
+1. Use TypeScript for all new files
+2. Follow the existing pattern of module exports
+3. Keep UI components separate from business logic
+4. Document new functions with JSDoc comments
+5. Handle errors appropriately using the error handling utilities
 
 ## Getting Started
 

@@ -44,3 +44,27 @@ export function formatDateTime(date: Date | string): string {
     minute: "2-digit"
   });
 }
+
+/**
+ * Calculates the time left in individual units (days, hours, minutes, seconds)
+ * Useful for countdown displays
+ */
+export function calculateTimeLeftDetail(endDate: Date): {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+} {
+  const difference = +endDate - +new Date();
+
+  if (difference <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+
+  return {
+    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+    minutes: Math.floor((difference / 1000 / 60) % 60),
+    seconds: Math.floor((difference / 1000) % 60),
+  };
+}

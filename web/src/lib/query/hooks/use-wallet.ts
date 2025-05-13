@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "../config"
-import type { WalletInfo } from "@/types/wallet"
-import { useWallet } from "@/providers/wallet-provider"
-import { fetchWalletTransactions } from "@/lib/api"
+import type { WalletTransaction } from "@/types/wallet"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { useWalletData } from "@/store/wallet-store"
+import { fetchWalletActivity } from "@/lib/api/user"
 
 // -------------------------------------------------------
 // Hooks
@@ -13,12 +14,12 @@ import { fetchWalletTransactions } from "@/lib/api"
  * @returns Query result containing wallet transactions
  */
 export function useWalletTransactions() {
-  const { wallet } = useWallet()
-  const walletAddress = wallet?.address
+  const { publicKey } = useWallet()
+  const walletAddress = publicKey?.toString()
 
   return useQuery({
     queryKey: queryKeys.wallet.transactions(),
-    queryFn: () => walletAddress ? fetchWalletTransactions(walletAddress) : Promise.resolve(null),
+    queryFn: () => walletAddress ? fetchWalletActivity(walletAddress) : Promise.resolve([]),
     enabled: !!walletAddress,
   })
 }
@@ -29,19 +30,23 @@ export function useWalletTransactions() {
  */
 export function useRefreshWalletBalance() {
   const queryClient = useQueryClient()
-  const { wallet, refreshBalance } = useWallet()
+  const { publicKey } = useWallet()
+  const { refreshBalance, balance } = useWalletData()
 
   return useMutation({
     mutationFn: refreshBalance,
-    onSuccess: (newBalance) => {
+    onSuccess: () => {
       // Update the wallet info if it exists in the cache
-      queryClient.setQueryData<WalletInfo | undefined>(queryKeys.wallet.all, (oldData) => {
-        if (!oldData) return undefined
-        return {
-          ...oldData,
-          balance: wallet?.balance || 0,
+      queryClient.setQueryData<{ balance: number } | undefined>(
+        queryKeys.wallet.all, 
+        (oldData) => {
+          if (!oldData) return undefined
+          return {
+            ...oldData,
+            balance: balance || 0,
+          }
         }
-      })
+      )
     },
   })
 }

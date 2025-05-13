@@ -274,6 +274,15 @@ export async function getWalletTransactions(walletAddress: string): Promise<Wall
  * Helper functions
  */
 function mapPrismaBetToAppBet(bet: any): Bet {
+  // Calculate days left
+  const now = new Date();
+  const endTime = new Date(bet.endTime);
+  const diffTime = endTime.getTime() - now.getTime();
+  const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+  // Get participant count
+  const participantCount = bet.participants ? bet.participants.length : 0;
+
   return {
     id: bet.id,
     title: bet.title,
@@ -293,5 +302,8 @@ function mapPrismaBetToAppBet(bet: any): Bet {
       amount: p.amount,
       timestamp: p.timestamp,
     })),
+    // Add the missing properties
+    participantCount: participantCount,
+    daysLeft: daysLeft
   };
 }

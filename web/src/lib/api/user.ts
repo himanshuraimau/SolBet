@@ -1,4 +1,9 @@
 import { UserProfile } from "@/types/wallet";
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+});
 
 /**
  * Fetches user profile data from the API
@@ -81,44 +86,21 @@ export async function verifyWalletSignature(
  * @param address Wallet address
  * @returns Array of wallet transactions
  */
-export async function fetchWalletActivity(address: string) {
-  // In a production app, you would fetch from your API
-  // For demo purposes, we'll return mock data
-  
-  // Mock API call delay
-  await new Promise(resolve => setTimeout(resolve, 400));
-  
-  // Return mock wallet activity
-  return [
-    {
-      id: 'tx1',
-      type: 'deposit',
-      amount: 2.5,
-      timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-    },
-    {
-      id: 'tx2',
-      type: 'bet',
-      amount: 0.5,
-      timestamp: new Date(Date.now() - 7200000), // 2 hours ago
-    },
-    {
-      id: 'tx3',
-      type: 'winnings',
-      amount: 1.2,
-      timestamp: new Date(Date.now() - 86400000), // 1 day ago
-    },
-    {
-      id: 'tx4',
-      type: 'deposit',
-      amount: 1.0,
-      timestamp: new Date(Date.now() - 172800000), // 2 days ago
-    },
-    {
-      id: 'tx5',
-      type: 'bet',
-      amount: 0.75,
-      timestamp: new Date(Date.now() - 259200000), // 3 days ago
-    }
-  ];
+export async function fetchWalletActivity(walletAddress: string): Promise<any[]> {
+  try {
+    const response = await api.get(`/users/${walletAddress}/transactions`);
+    
+    // Transform the response data to ensure it has all required fields
+    return response.data.map((tx: any) => ({
+      id: tx.id,
+      amount: tx.amount,
+      timestamp: new Date(tx.timestamp || Date.now()),
+      type: tx.type || 'deposit',
+      // Ensure status is always present
+      status: tx.status || 'completed'
+    }));
+  } catch (error) {
+    console.error('Error fetching wallet activity:', error);
+    return [];
+  }
 }

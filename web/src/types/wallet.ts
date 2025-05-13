@@ -10,10 +10,14 @@ export type TransactionType = 'deposit' | 'withdrawal' | 'bet' | 'winnings';
 
 export interface WalletTransaction {
   id: string;
-  type: TransactionType;
   amount: number;
   timestamp: Date;
-}
+  type: 'deposit' | 'withdrawal' | 'bet' | 'win' | 'lose' | 'referral';
+  status: 'pending' | 'confirmed' | 'completed' | 'failed';
+  // Other optional properties
+  betId?: string;
+  description?: string;
+};
 
 export interface UserStats {
   betsCreated: number;
