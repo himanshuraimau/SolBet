@@ -7,7 +7,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Coins, TrendingUp, Shield, Zap } from "lucide-react"
 import { motion, useAnimation, useInView } from "framer-motion"
-import dynamic from "next/dynamic"
 
 // Fallback component for when 3D visualization fails to load
 const FallbackVisualization = () => (
@@ -27,22 +26,7 @@ const FallbackVisualization = () => (
   </div>
 )
 
-// Dynamically import the 3D component with no SSR to avoid hydration issues
-const BlockchainScene = dynamic(
-  () =>
-    import("@/components/3d/blockchain-visualization").catch((err) => {
-      console.error("Error loading BlockchainVisualization:", err)
-      return FallbackVisualization
-    }),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-full w-full flex items-center justify-center">
-        <div className="h-16 w-16 rounded-full border-4 border-primary-yellow border-t-transparent animate-spin"></div>
-      </div>
-    ),
-  },
-)
+
 
 export default function Hero() {
   const controls = useAnimation()
