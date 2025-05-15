@@ -16,15 +16,30 @@ interface AuthWrapperProps {
 
 export default function AuthWrapper({ children, redirectPath = "/" }: AuthWrapperProps) {
   const { publicKey, connected } = useWallet();
-  const { user, isLoading, error } = useAuth();
+  const { user, isLoading, error, refreshUser } = useAuth();
   const router = useRouter();
-  // Add state to track client-side rendering
   const [mounted, setMounted] = useState(false);
+  
+  // Track if we've already triggered the refresh
+  const [hasRefreshed, setHasRefreshed] = useState(false);
 
   // Set mounted state on client-side to prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Refresh user data only once when component mounts and wallet is connected
+  useEffect(() => {
+    if (mounted && connected && publicKey && !hasRefreshed) {
+      refreshUser();
+      setHasRefreshed(true);
+    }
+    
+    // Reset hasRefreshed flag when wallet disconnects
+    if (!connected || !publicKey) {
+      setHasRefreshed(false);
+    }
+  }, [mounted, connected, publicKey, refreshUser, hasRefreshed]);
 
   // Early return during server-side rendering to prevent hydration mismatch
   if (!mounted) {
@@ -97,8 +112,36 @@ export default function AuthWrapper({ children, redirectPath = "/" }: AuthWrappe
       <div className="container py-10">
         <Card>
           <CardContent className="p-6 text-center">
-            <p className="text-accent-coral mb-4">Error connecting to your profile</p>
+            <p className="text-accent-coral mb-4">Error: {error}</p>
             <div className="flex flex-col gap-4 items-center">
+              <Button 
+                onClick={refreshUser}
+                disabled={isLoading}
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Try Again
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => router.push(redirectPath)}
+              >
+                Go Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container py-10">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="mb-4">No user profile found. Please try reconnecting your wallet.</p>
+            <div className="flex flex-col gap-4 items-center">
+              <WalletMultiButton className="wallet-adapter-button-custom" />
               <Button 
                 variant="outline"
                 onClick={() => router.push(redirectPath)}

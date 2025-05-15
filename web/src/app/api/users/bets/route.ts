@@ -1,120 +1,83 @@
-import { NextRequest } from "next/server";
+// /app/src/app/api/users/bets/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { safeApiHandler, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
 /**
  * @route GET /api/users/bets
- * @description Get all bets created by or participated in by a user
- * @param {string} address - The user's wallet address
- * @returns {Object} Object containing arrays of active, created, participated, and resolved bets
+ * @desc Fetch user's bets
  */
 export async function GET(request: NextRequest) {
-  return safeApiHandler(async () => {
+  try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
-    
-    const user = await validateUserByWalletAddress(address!);
 
-    // Get all bets created by the user
-    const createdBets = await prisma.bet.findMany({
-      where: {
-        creatorId: user.id,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+    if (!address) {
+      return NextResponse.json(
+        { error: "Wallet address is required" },
+        { status: 400 }
+      );
+    }
+
+    // Find the user by wallet address
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: address },
     });
 
-    // Get all bets participated in by the user
-    const participatedBets = await prisma.userBet.findMany({
-      where: {
-        userId: user.id,
-      },
+    if (!user) {
+      return NextResponse.json({ bets: [] }, { status: 200 });
+    }
+
+    // Get the user's bets
+    const userBets = await prisma.userBet.findMany({
+      where: { userId: user.id },
       include: {
-        bet: true,
+        bet: true
       },
       orderBy: {
-        timestamp: "desc",
-      },
+        createdAt: 'desc'
+      }
     });
 
-    // Format the data for the frontend
-    const active: any[] = [];
-    const created: any[] = [];
-    const participated: any[] = [];
-    const resolved: any[] = [];
-
-    // Process created bets
-    for (const bet of createdBets) {
-      const betData = {
-        id: bet.id,
-        title: bet.title,
-        description: bet.description,
-        amount: bet.maximumBet, // Using maximumBet as an amount reference
-        status: bet.status,
-        createdAt: bet.createdAt.toISOString(),
-        expiresAt: bet.endTime.toISOString(),
-      };
-
-      if (bet.status === "ACTIVE" || bet.status === "active") {
-        created.push(betData);
-      } else if (bet.status === "SETTLED" || bet.status === "settled" || 
-                bet.status.startsWith("resolved_")) {
-        const outcome = bet.status.includes("yes") ? "YES" : "NO";
-        resolved.push({
-          ...betData,
-          outcome,
-        });
+    // Transform to expected format
+    const formattedBets = userBets.map(userBet => {
+      // Calculate outcome based on bet status and position
+      let outcome = "pending";
+      if (userBet.bet.status === 'RESOLVED') {
+        if (userBet.bet.outcome === userBet.position) {
+          outcome = "win";
+        } else if (userBet.bet.outcome !== null) {
+          outcome = "loss";
+        }
       }
-    }
 
-    // Process participated bets
-    for (const userBet of participatedBets) {
-      const bet = userBet.bet;
-      if (!bet) continue;
-
-      const betData = {
-        id: bet.id,
-        title: bet.title,
-        description: bet.description,
-        amount: Number(userBet.amount),
+      // Calculate potential return (simple formula)
+      const betAmount = parseFloat(userBet.amount) / 1000000000; // Convert lamports to SOL
+      const potentialReturn = userBet.position === 'YES' 
+        ? betAmount * parseFloat(userBet.bet.totalPool) / parseFloat(userBet.bet.yesPool) 
+        : betAmount * parseFloat(userBet.bet.totalPool) / parseFloat(userBet.bet.noPool);
+      
+      return {
+        id: userBet.id,
+        betId: userBet.betId,
+        title: userBet.bet.title,
+        description: userBet.bet.description,
+        category: userBet.bet.category,
         position: userBet.position,
-        status: bet.status,
-        createdAt: bet.createdAt.toISOString(),
-        expiresAt: bet.endTime.toISOString(),
+        amount: betAmount,
+        potentialReturn: parseFloat(potentialReturn.toFixed(2)) || betAmount * 1.8, // fallback to simple calculation
+        outcome,
+        status: userBet.bet.status.toLowerCase(),
+        expiresAt: userBet.bet.expiresAt.toISOString(),
+        createdAt: userBet.createdAt.toISOString()
       };
-
-      if (bet.status === "ACTIVE" || bet.status === "active") {
-        participated.push(betData);
-        active.push(betData);
-      } else if (bet.status === "SETTLED" || bet.status === "settled" || 
-                bet.status.startsWith("resolved_")) {
-        // Determine outcome based on status
-        const outcomeIsYes = bet.status.includes("yes");
-        const outcome = outcomeIsYes ? "YES" : "NO";
-        
-        // Determine winner based on position and outcome
-        const isWinner = (userBet.position.toUpperCase() === "YES" && outcomeIsYes) || 
-                         (userBet.position.toUpperCase() === "NO" && !outcomeIsYes);
-        
-        resolved.push({
-          ...betData,
-          outcome,
-          payout: isWinner ? Number(userBet.amount) * 2 : 0, // Simple payout calculation
-        });
-      }
-    }
-
-    // Remove duplicates from active bets (those created by the user and participated in)
-    const uniqueActive = active.filter(activeBet => 
-      !created.some(createdBet => createdBet.id === activeBet.id)
-    );
-
-    return formatApiResponse({
-      active: uniqueActive,
-      created,
-      participated,
-      resolved,
     });
-  });
+
+    return NextResponse.json({ bets: formattedBets });
+  } catch (error) {
+    console.error("Error fetching user bets:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch user bets" },
+      { status: 500 }
+    );
+  }
 }

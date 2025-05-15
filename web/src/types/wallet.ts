@@ -1,37 +1,38 @@
-export interface WalletInfo {
-  address: string
-  publicKey: string
-  balance: number
-  provider: "Phantom" | "Solflare" | "Backpack" | "Other"
-  connected: boolean
-}
-
+/**
+ * Transaction types supported by the wallet
+ */
 export type TransactionType = 'deposit' | 'withdrawal' | 'bet' | 'winnings';
 
+/**
+ * Structure for wallet transactions
+ */
 export interface WalletTransaction {
   id: string;
+  type: TransactionType;
   amount: number;
   timestamp: Date;
-  type: 'deposit' | 'withdrawal' | 'bet' | 'win' | 'lose' | 'referral';
-  status: 'pending' | 'confirmed' | 'completed' | 'failed';
-  // Other optional properties
-  betId?: string;
+  status?: 'pending' | 'completed' | 'failed';
   description?: string;
-};
-
-export interface UserStats {
-  betsCreated: number;
-  betsJoined: number;
-  winRate: number;
-  totalWinnings: number;
 }
 
+/**
+ * User profile data structure
+ */
 export interface UserProfile {
-  id: string;
-  walletAddress: string;
-  displayName: string;
+  displayName?: string;
+  avatar?: string;
   email?: string;
-  avatarUrl?: string;
-  createdAt: string;
-  stats?: UserStats;
+  bio?: string;
+  walletAddress?: string;
+  joinedDate?: Date;
+}
+
+/**
+ * Wallet authentication payload structure
+ */
+export interface WalletSignaturePayload {
+  walletAddress: string;
+  signature: string;
+  message: string;
+  timestamp?: number;
 }

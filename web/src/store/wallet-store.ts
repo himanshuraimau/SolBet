@@ -1,219 +1,145 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import { useCallback, useEffect, useState } from 'react';
 import { WalletTransaction, UserProfile } from '@/types/wallet';
-import { fetchUserProfile, updateProfile, fetchWalletActivity } from '@/lib/api/user';
-import { useWallet } from '@solana/wallet-adapter-react';
-
-// -------------------------------------------------------
-// Types
-// -------------------------------------------------------
+import { createAuthMessage, verifyWalletSignature } from '@/lib/wallet';
+import { fetchUserTransactions } from '@/lib/api';
+import { transformTransactionsForWallet } from '@/lib/query/hooks/use-user-transactions';
 
 interface WalletState {
   balance: number;
   transactions: WalletTransaction[];
   userProfile: UserProfile | null;
-  isProfileLoading: boolean;
   isLoading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  authMessage: string | null;
+  authSignature: string | null;
+  refreshBalance: (walletAddress?: string) => Promise<void>;
+  updateUserProfile: (walletAddress?: string) => Promise<void>;
+  authenticate: (walletAddress: string, signature: string, message: string) => Promise<boolean>;
+  clearAuth: () => void;
+  createAuthenticationMessage: (action: string, data?: Record<string, any>) => string;
 }
 
-interface WalletActions {
-  setBalance: (balance: number) => void;
-  addTransaction: (transaction: WalletTransaction) => void;
-  setTransactions: (transactions: WalletTransaction[]) => void;
-  setUserProfile: (profile: UserProfile | null) => void;
-  setIsProfileLoading: (isLoading: boolean) => void;
-  setIsLoading: (isLoading: boolean) => void;
-  resetState: () => void;
-}
-
-// -------------------------------------------------------
-// Initial state and Store creation
-// -------------------------------------------------------
-
-// Initial state
-const initialState: WalletState = {
+export const useWalletData = create<WalletState>((set, get) => ({
   balance: 0,
   transactions: [],
   userProfile: null,
-  isProfileLoading: false,
   isLoading: false,
-};
-
-// Create the store
-export const useWalletStore = create<WalletState & WalletActions>()(
-  persist(
-    (set) => ({
-      ...initialState,
-      
-      setBalance: (balance) => set(() => ({ balance })),
-      
-      addTransaction: (transaction) => 
-        set((state) => ({ 
-          transactions: [transaction, ...state.transactions] 
-        })),
-      
-      setTransactions: (transactions) => set(() => ({ transactions })),
-      
-      setUserProfile: (profile) => set(() => ({ userProfile: profile })),
-      
-      setIsProfileLoading: (isLoading) => set(() => ({ isProfileLoading: isLoading })),
-      
-      setIsLoading: (isLoading) => set(() => ({ isLoading })),
-      
-      resetState: () => set(initialState),
-    }),
-    {
-      name: 'wallet-storage',
-      partialize: (state) => ({ 
-        userProfile: state.userProfile,
-        transactions: state.transactions,
-      }),
-    }
-  )
-);
-
-// -------------------------------------------------------
-// Utility functions
-// -------------------------------------------------------
-
-/**
- * Get the balance of a Solana wallet
- * @param publicKey The public key of the wallet
- * @returns The balance in SOL
- */
-const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {
-  try {
-    // Get connection to Solana network
-    const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com');
-    
-    // Fetch SOL balance
-    const lamports = await connection.getBalance(publicKey);
-    return lamports / LAMPORTS_PER_SOL;
-  } catch (error) {
-    console.error('Failed to fetch balance:', error);
-    return 0;
-  }
-};
-
-// -------------------------------------------------------
-// Custom hook
-// -------------------------------------------------------
-
-/**
- * Custom hook to access and update wallet data
- * Uses Solana wallet adapter and zustand store
- */
-export function useWalletData() {
-  const { publicKey, connected } = useWallet();
-  const [mounted, setMounted] = useState(false);
+  error: null,
+  isAuthenticated: false,
+  authMessage: null,
+  authSignature: null,
   
-  // Get store state and actions
-  const { 
-    balance, 
-    transactions, 
-    userProfile,
-    isProfileLoading,
-    isLoading,
-    setBalance, 
-    addTransaction, 
-    setTransactions,
-    setUserProfile,
-    setIsProfileLoading,
-    setIsLoading,
-    resetState
-  } = useWalletStore();
-
-  // Set mounted to true when component mounts (client-side only)
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Reset wallet data when wallet disconnects
-  useEffect(() => {
-    if (!connected) {
-      resetState();
-    }
-  }, [connected, resetState]);
-
-  /**
-   * Refresh wallet balance and transaction history
-   */
-  const refreshBalance = useCallback(async () => {
-    if (!publicKey || !connected) return;
+  refreshBalance: async (walletAddress?: string) => {
+    if (!walletAddress) return;
     
     try {
-      setIsLoading(true);
+      set({ isLoading: true, error: null });
       
-      // Get balance
-      const newBalance = await getWalletBalance(publicKey);
-      setBalance(newBalance);
+      // Fetch balance from API
+      const response = await fetch(`/api/wallet/balance?address=${walletAddress}`);
       
-      // Get transaction history 
-      const txHistory = await fetchWalletActivity(publicKey.toString());
-      const typedTransactions = txHistory.map(tx => ({
-        ...tx,
-        type: tx.type as WalletTransaction['type'],
-        // Ensure status is always set, with 'completed' as fallback
-        status: (tx.status || 'completed') as WalletTransaction['status']
-      }));
-      setTransactions(typedTransactions);
-    } catch (error) {
-      console.error('Failed to refresh wallet data:', error);
-    } finally {
-      setIsLoading(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch balance');
+      }
+      
+      const data = await response.json();
+      
+      // Fetch recent transactions from API
+      const txResponse = await fetchUserTransactions(walletAddress);
+      
+      // Transform API transactions to wallet store format
+      const transactions = transformTransactionsForWallet(txResponse.transactions);
+      
+      set({ 
+        balance: data.balance,
+        transactions,
+        isLoading: false
+      });
+    } catch (err) {
+      console.error('Error refreshing wallet data:', err);
+      set({ 
+        error: err instanceof Error ? err.message : 'Failed to refresh wallet data',
+        isLoading: false
+      });
     }
-  }, [publicKey, connected, setBalance, setTransactions, setIsLoading]);
-
-  /**
-   * Fetch user profile from the API
-   */
-  const updateUserProfile = useCallback(async () => {
-    if (!publicKey || !connected) return;
+  },
+  
+  updateUserProfile: async (walletAddress?: string) => {
+    if (!walletAddress) return;
     
     try {
-      setIsProfileLoading(true);
-      const profile = await fetchUserProfile(publicKey.toString());
-      setUserProfile(profile);
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-    } finally {
-      setIsProfileLoading(false);
+      set({ isLoading: true, error: null });
+      
+      // Fetch user profile from API
+      const response = await fetch(`/api/users/profile?address=${walletAddress}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch user profile');
+      }
+      
+      const profile = await response.json();
+      
+      set({ 
+        userProfile: profile,
+        isLoading: false
+      });
+    } catch (err) {
+      console.error('Error updating user profile:', err);
+      set({ 
+        error: err instanceof Error ? err.message : 'Failed to update user profile',
+        isLoading: false
+      });
     }
-  }, [publicKey, connected, setUserProfile, setIsProfileLoading]);
-
-  /**
-   * Update user profile with new data
-   * @param profileData Partial user profile data to update
-   * @returns True if update was successful, false otherwise
-   */
-  const updateProfileData = useCallback(async (profileData: Partial<UserProfile>) => {
-    if (!publicKey || !connected) return false;
-    
+  },
+  
+  authenticate: async (walletAddress: string, signature: string, message: string) => {
     try {
-      setIsProfileLoading(true);
-      const updatedProfile = await updateProfile(publicKey.toString(), profileData);
-      setUserProfile(updatedProfile);
-      return true;
-    } catch (error) {
-      console.error('Failed to update profile:', error);
+      set({ isLoading: true, error: null });
+      
+      // Verify the wallet signature
+      const isValid = await verifyWalletSignature(walletAddress, signature, message);
+      
+      if (isValid) {
+        set({ 
+          isAuthenticated: true, 
+          authMessage: message,
+          authSignature: signature,
+          isLoading: false 
+        });
+        return true;
+      } else {
+        set({ 
+          error: 'Invalid wallet signature', 
+          isAuthenticated: false,
+          isLoading: false 
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error('Authentication error:', err);
+      set({ 
+        error: err instanceof Error ? err.message : 'Authentication failed',
+        isAuthenticated: false,
+        isLoading: false 
+      });
       return false;
-    } finally {
-      setIsProfileLoading(false);
     }
-  }, [publicKey, connected, setUserProfile, setIsProfileLoading]);
-
-  return {
-    publicKey,
-    connected,
-    balance,
-    transactions,
-    userProfile,
-    isProfileLoading,
-    isLoading,
-    refreshBalance,
-    updateUserProfile,
-    updateProfileData,
-  };
-}
+  },
+  
+  clearAuth: () => {
+    set({
+      isAuthenticated: false,
+      authMessage: null,
+      authSignature: null
+    });
+  },
+  
+  createAuthenticationMessage: (action: string, data?: Record<string, any>) => {
+    const message = createAuthMessage(action, data);
+    set({ authMessage: message });
+    return message;
+  }
+}));

@@ -1,258 +1,151 @@
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { safeApiHandler, ApiError, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
-interface CreateBetRequest {
-  title: string;
-  description: string;
-  category: string;
-  minimumBet: number;
-  maximumBet: number;
-  endTime: Date;
-  creator: string; // Wallet address
-}
-
-/**
- * @route POST /api/bets
- * @description Create a new bet
- * @body {Object} body - Contains bet details
- * @returns {Object} Created bet information
- */
-export async function POST(request: NextRequest) {
-  return safeApiHandler(async () => {
-    // Parse the request body
-    const body: CreateBetRequest = await request.json();
+export async function GET(req: NextRequest) {
+  try {
+    // Get query parameters
+    const url = new URL(req.url);
     
-    // Validate required fields
-    if (!body.title || !body.category || !body.creator || !body.endTime) {
-      return ApiError.badRequest("Missing required fields");
-    }
-
-    // Validate amounts
-    if (body.minimumBet <= 0 || body.maximumBet <= 0 || body.minimumBet > body.maximumBet) {
-      return ApiError.badRequest("Invalid bet amounts");
-    }
-
-    // Check if endTime is in the future
-    const now = new Date();
-    const endTime = new Date(body.endTime);
-    if (endTime <= now) {
-      return ApiError.badRequest("End time must be in the future");
-    }
-
-    const user = await validateUserByWalletAddress(body.creator);
-
-    // Create the bet in the database
-    const bet = await prisma.bet.create({
-      data: {
-        title: body.title,
-        description: body.description || "",
-        category: body.category,
-        minimumBet: body.minimumBet,
-        maximumBet: body.maximumBet,
-        startTime: now,
-        endTime: endTime,
-        yesPool: 0,
-        noPool: 0,
-        status: "active",
-        creatorId: user.id,
-      },
-      include: {
-        creator: {
-          select: {
-            walletAddress: true,
-            displayName: true,
-          },
-        },
-      },
-    });
-
-    // Update user stats
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        betsCreated: { increment: 1 },
-      },
-    });
-
-    // Format the bet for the response
-    const formattedBet = {
-      id: bet.id,
-      title: bet.title,
-      description: bet.description,
-      category: bet.category,
-      creator: user.walletAddress,
-      creatorName: user.displayName,
-      yesPool: bet.yesPool,
-      noPool: bet.noPool,
-      minimumBet: bet.minimumBet,
-      maximumBet: bet.maximumBet,
-      startTime: bet.startTime,
-      endTime: bet.endTime,
-      status: bet.status,
-      participants: [],
-    };
-
-    return formatApiResponse(formattedBet);
-  });
-}
-
-/**
- * @route GET /api/bets
- * @description Get bets with filtering and pagination
- * @param {string} category - Filter by category
- * @param {string} status - Filter by status
- * @param {string} search - Search in title/description
- * @param {number} page - Page number for pagination
- * @param {number} limit - Number of items per page
- * @param {string} wallet - Filter by wallet address
- * @param {string} tab - Filter by tab (all, ending-soon, trending, my-bets)
- * @returns {Object} Filtered bets with pagination information
- */
-export async function GET(request: NextRequest) {
-  return safeApiHandler(async () => {
-    const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
-    const status = searchParams.get('status');
-    const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const walletAddress = searchParams.get('wallet');
-    const tab = searchParams.get('tab') || 'all';
-    
+    // Pagination
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '12');
     const skip = (page - 1) * limit;
     
-    // Build the where clause based on filters
-    const where: any = {};
+    // Filters
+    const tab = url.searchParams.get('tab') || 'all';
+    const search = url.searchParams.get('search') || '';
+    const category = url.searchParams.get('category') || '';
+    const walletAddress = url.searchParams.get('wallet') || '';
     
-    if (category) {
-      where.category = category;
+    // Define the base where clause for filtering
+    let whereClause: any = {};
+    
+    // Apply status filter based on the tab
+    if (tab === 'active') {
+      whereClause.status = 'ACTIVE';
+    } else if (tab === 'resolved') {
+      whereClause.status = 'RESOLVED';
+    } else if (tab === 'my-bets' && walletAddress) {
+      // For "my bets" we need to filter by creator's wallet address
+      whereClause.creator = {
+        walletAddress: walletAddress
+      };
+    } else if (tab === 'ending-soon') {
+      // Ending soon: active bets that expire within 24 hours
+      const oneDayFromNow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      whereClause.status = 'ACTIVE';
+      whereClause.expiresAt = {
+        lte: oneDayFromNow,
+        gt: new Date() // Not expired yet
+      };
+    } else if (tab === 'trending') {
+      // Trending: active bets with highest totalPool
+      whereClause.status = 'ACTIVE';
+      // We'll sort by totalPool later
     }
     
-    if (status) {
-      where.status = status;
+    // Apply category filter if specified
+    if (category && category !== 'all') {
+      whereClause.category = category;
     }
     
+    // Apply search filter if specified
     if (search) {
-      where.OR = [
+      whereClause.OR = [
         { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
       ];
     }
     
-    // Handle different tabs
-    if (tab === 'ending-soon') {
-      where.endTime = {
-        gt: new Date(),
-      };
-      where.status = 'active';
-    } else if (tab === 'trending') {
-      // For trending, we'll sort by total pool size
-      where.status = 'active';
-    } else if (tab === 'my-bets' && walletAddress) {
-      // Find user by wallet address
-      const user = await prisma.user.findUnique({
-        where: { walletAddress },
-        select: { id: true },
-      });
-      
-      if (user) {
-        // For My Bets tab, get bets where the user has participated
-        const userBets = await prisma.userBet.findMany({
-          where: { userId: user.id },
-          select: { betId: true },
-        });
-        
-        where.OR = [
-          { id: { in: userBets.map(bet => bet.betId) } },
-          { creatorId: user.id }
-        ];
-      } else {
-        // If user not found, return empty result
-        return formatApiResponse({
-          bets: [],
-          pagination: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          }
-        });
-      }
-    }
-    
-    // Count total bets matching the criteria
-    const total = await prisma.bet.count({ where });
-    
-    // Get the bets with sorting options
+    // Determine sort order based on tab
     let orderBy: any = {};
     
     if (tab === 'trending') {
-      // Sort by total pool size for trending
-      orderBy = {
-        yesPool: 'desc',
-      };
+      orderBy = { totalPool: 'desc' }; // Sort by total pool size
     } else if (tab === 'ending-soon') {
-      // Sort by end time (soonest first) for ending soon
-      orderBy = {
-        endTime: 'asc',
-      };
+      orderBy = { expiresAt: 'asc' }; // Sort by closest expiration
     } else {
-      // Default sort by creation date (newest first)
-      orderBy = {
-        createdAt: 'desc',
-      };
+      orderBy = { createdAt: 'desc' }; // Default to newest first
     }
     
-    const bets = await prisma.bet.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-      include: {
-        creator: {
-          select: {
-            walletAddress: true,
-            displayName: true,
-          },
-        },
-        _count: {
-          select: { participants: true },
-        },
-      },
+    // First, count total matches for pagination
+    const totalItems = await prisma.bet.count({
+      where: whereClause
     });
     
-    // Format the bets
+    const totalPages = Math.ceil(totalItems / limit);
+    
+    // Fetch the bets
+    const bets = await prisma.bet.findMany({
+      where: whereClause,
+      include: {
+        creator: true,
+        userBets: {
+          select: {
+            userId: true,
+            position: true,
+            amount: true,
+            createdAt: true,
+            user: {
+              select: {
+                walletAddress: true
+              }
+            }
+          }
+        }
+      },
+      orderBy,
+      skip,
+      take: limit
+    });
+    
+    // Format the response to match the expected structure
     const formattedBets = bets.map(bet => ({
       id: bet.id,
       title: bet.title,
       description: bet.description,
+      creatorAddress: bet.creator.walletAddress,
+      betPublicKey: bet.betPublicKey,
+      escrowAccount: bet.escrowAccount,
       category: bet.category,
-      creator: bet.creator.walletAddress,
-      creatorName: bet.creator.displayName,
-      yesPool: bet.yesPool,
-      noPool: bet.noPool,
-      totalPool: bet.yesPool + bet.noPool,
-      minimumBet: bet.minimumBet,
-      maximumBet: bet.maximumBet,
-      startTime: bet.startTime,
-      endTime: bet.endTime,
-      status: bet.status,
-      participantCount: bet._count.participants,
-      daysLeft: Math.max(0, Math.ceil((new Date(bet.endTime).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))),
+      status: bet.status.toLowerCase(),
+      yesPool: parseFloat(bet.yesPool) / 1e9, // Convert from lamports to SOL
+      noPool: parseFloat(bet.noPool) / 1e9,
+      totalPool: parseFloat(bet.totalPool) / 1e9,
+      minimumBet: parseFloat(bet.minBetAmount) / 1e9,
+      maximumBet: parseFloat(bet.maxBetAmount) / 1e9,
+      expiresAt: bet.expiresAt.toISOString(),
+      endTime: bet.expiresAt,
+      startTime: bet.createdAt,
+      daysLeft: Math.max(0, Math.ceil((bet.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))),
+      participants: bet.userBets.map(userBet => ({
+        walletAddress: userBet.user.walletAddress,
+        position: userBet.position.toLowerCase(),
+        amount: parseFloat(userBet.amount) / 1e9,
+        timestamp: userBet.createdAt
+      }))
     }));
     
-    // Calculate pagination info
-    const totalPages = Math.ceil(total / limit);
-    
-    return formatApiResponse({
-      bets: formattedBets,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
+    return NextResponse.json({
+      success: true,
+      data: {
+        bets: formattedBets,
+        pagination: {
+          page,
+          pageSize: limit,
+          totalItems,
+          totalPages
+        }
       }
     });
-  });
+    
+  } catch (error) {
+    console.error('Error fetching bets:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch bets',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
 }

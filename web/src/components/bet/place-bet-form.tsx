@@ -13,15 +13,19 @@ import { formatSOL, calculateOdds } from "@/lib/utils"
 import { AlertCircle, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Bet } from "@/types/bet"
+import { useQueryClient, useMutation } from "@tanstack/react-query"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { useSolanaBet } from "@/hooks/bet/use-solana-bet"
 import { queryKeys } from "@/lib/query/config"
-import { getSolanaErrorMessage, logSolanaError } from "@/lib/solana-errors"
+import { Bet as TypesBet } from "@/types/bet" // Import with alias
+import { Bet as MockBet } from "@/mock/adapters" // Import with alias
+import { usePlaceBet } from "@/lib/query/mutations/place-bet";
+
+// Define a union type that accepts either Bet type
+type AnyBet = TypesBet | MockBet;
 
 interface PlaceBetFormProps {
-  bet: Bet
+  bet: AnyBet;
 }
 
 // Mock Solana transaction for development - we'll remove this when connecting to the real blockchain
@@ -56,49 +60,73 @@ const placeBetInDb = async (params: {
   return response.json()
 }
 
+// Define the API call for placing a bet
+const placeBetAPI = async (params: {
+  betId: string;
+  position: string;
+  amount: number;
+  walletAddress: string;
+  onChainTxId?: string;
+}) => {
+  const response = await fetch('/api/bets/place', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to place bet');
+  }
+
+  return response.json();
+};
+
 export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
   const { publicKey, connected } = useWallet()
   const [position, setPosition] = useState<"yes" | "no">("yes")
-  const [amount, setAmount] = useState<number>(bet.minBet ?? 0.1)
+  const [amount, setAmount] = useState<number>(bet.minimumBet ?? 0.1)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
   const [isSolanaLoading, setIsSolanaLoading] = useState(false)
   const queryClient = useQueryClient()
   const { makeBet } = useSolanaBet()  // Add Solana Bet hook
-
-  const totalPool = bet.yesPool + bet.noPool
-  const odds = calculateOdds(bet.yesPool, bet.noPool, position)
-  const potentialReturn = amount * odds
-
-  // Set up the mutation for placing a bet in the database
   const placeBetMutation = useMutation({
-    mutationFn: placeBetInDb,
+    mutationFn: placeBetAPI,
     onSuccess: () => {
-      // Invalidate queries to refresh the data
-      queryClient.invalidateQueries({ queryKey: queryKeys.bets.detail(bet.id) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.bets.lists() })
-      setSuccess(true)
+      // Invalidate the specific bet query
+      queryClient.invalidateQueries({ queryKey: ["bet", bet.id] });
       
+      // Also invalidate the list of bets
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
+      
+      setSuccess(true);
       toast({
         title: "Bet placed successfully!",
         description: `You bet ${formatSOL(amount)} on ${position.toUpperCase()}`,
-      })
+      });
       
-      // Reset after 3 seconds
+      // Reset form after success
       setTimeout(() => {
-        setSuccess(false)
-      }, 3000)
+        setSuccess(false);
+      }, 3000);
     },
     onError: (error) => {
-      setError(error.message || "Failed to place bet")
+      setError(error.message || "Failed to place bet");
       toast({
         title: "Failed to place bet",
         description: error.message || "An error occurred",
         variant: "destructive",
-      })
-    },
-  })
+      });
+    }
+  });
+
+  const totalPool = bet.yesPool + bet.noPool
+  const odds = calculateOdds(bet.yesPool, bet.noPool, position)
+  const potentialReturn = amount * odds
 
   // Get wallet balance from Solana
   const getBalance = async () => {
@@ -126,7 +154,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
 
   const handleAmountChange = (value: number) => {
     // Ensure amount is within min/max range
-    const newAmount = Math.max(bet.minBet ?? 0.1, Math.min(bet.maxBet ?? 10, value))
+    const newAmount = Math.max(bet.minimumBet ?? 0.1, Math.min(bet.maximumBet ?? 10, value))
     setAmount(newAmount)
   }
 
@@ -138,95 +166,34 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
     e.preventDefault()
 
     if (!publicKey) {
-      setError("Please connect your wallet first")
-      return
+      toast({
+        title: "Wallet not connected",
+        description: "Please connect your wallet to place a bet",
+        variant: "destructive",
+      });
+      return;
     }
 
     // Check if user has enough balance
     if (balance !== null && balance < amount) {
-      setError(`Insufficient balance. You have ${formatSOL(balance)}.`)
-      return
+      toast({
+        title: "Insufficient balance",
+        description: `You need at least ${formatSOL(amount)} to place this bet`,
+        variant: "destructive",
+      });
+      return;
     }
 
-    // Reset previous errors
-    setError(null)
-
     try {
-      setSuccess(false)
-      setIsSolanaLoading(true)
-      
-      // Step 1: Process the bet on Solana blockchain
-      let onChainResult;
-      
-      try {
-        // We need to fetch the actual Solana account address corresponding to this bet ID
-        const response = await fetch(`/api/bets/${bet.id}/solana-address`);
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch Solana account addresses for this bet");
-        }
-        
-        const { betAccount, escrowAccount } = await response.json();
-        
-        // Place bet on Solana blockchain using the actual Solana addresses
-        onChainResult = await makeBet.mutateAsync({
-          betAccount: betAccount,
-          escrowAccount: escrowAccount,
-          amount: amount,
-          position: position
-        });
-      } catch (err: any) {
-        console.error("Error processing on-chain transaction:", err);
-        
-        // Check for SendTransactionError and get logs if available
-        let errorMessage = err instanceof Error ? err.message : "Unknown error";
-        if (err.logs) {
-          console.error("Transaction logs:", err.logs);
-          errorMessage += "\nDetails: " + err.logs.join("\n");
-        } else if (typeof err.getLogs === 'function') {
-          const logs = err.getLogs();
-          console.error("Transaction logs:", logs);
-          errorMessage += "\nDetails: " + logs.join("\n");
-        }
-        
-        // Provide more helpful message based on error type
-        let userErrorMessage = "Blockchain transaction failed. Please try again.";
-        
-        if (err.name === "WalletSendTransactionError") {
-          userErrorMessage = "Your wallet declined the transaction. Please check your wallet and try again.";
-        } else if (err.name === "WalletConnectionError") {
-          userErrorMessage = "Could not connect to your wallet. Please check your connection and try again.";
-        } else if (err.name === "WalletTimeoutError") {
-          userErrorMessage = "Wallet operation timed out. Please try again.";
-        } else if (errorMessage.includes("insufficient funds")) {
-          userErrorMessage = "Your wallet has insufficient funds for this transaction.";
-        }
-        
-        // Show cleaner error message to the user
-        setError(userErrorMessage);
-        toast({
-          title: "Transaction Failed",
-          description: userErrorMessage,
-          variant: "destructive",
-        });
-        setIsSolanaLoading(false);
-        return;
-      }
-      
-      // Step 2: Record the bet in our database with the transaction signature
       await placeBetMutation.mutateAsync({
-        walletAddress: publicKey.toString(),
         betId: bet.id,
         position,
         amount,
-        onChainTxId: onChainResult.signature
-      })
-      
-    } catch (err) {
-      // Error handling is done in the mutation callbacks
-      console.error("Error placing bet:", err)
-    } finally {
-      setIsSolanaLoading(false)
+        walletAddress: publicKey.toString(),
+        onChainTxId: "simulated-tx-" + Date.now() // For testing
+      });
+    } catch (error) {
+      // Error handling in onError callback
     }
   }
 
@@ -246,7 +213,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
   }
 
   // Check if bet is still active
-  const isBetActive = bet.status === "ACTIVE" && new Date(bet.expiresAt) > new Date()
+  const isBetActive = bet.status.toLowerCase() === "active" && new Date(bet.expiresAt) > new Date()
   
   if (!isBetActive) {
     return (
@@ -257,7 +224,7 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
         </CardHeader>
         <CardContent className="text-center py-6">
           <p>
-            {bet.status !== "ACTIVE" 
+            {bet.status.toLowerCase() !== "active" 
               ? "This bet has been closed or resolved." 
               : "The betting period for this event has ended."}
           </p>
@@ -297,7 +264,11 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
                 <span>Potential Return</span>
                 <span className="font-mono font-medium">
                   {formatSOL(
-                    calculateOdds(bet.yesPool, bet.noPool, userParticipation.position) * 
+                    calculateOdds(
+                      bet.yesPool, 
+                      bet.noPool, 
+                      userParticipation.position.toLowerCase() as "yes" | "no"
+                    ) * 
                     userParticipation.amount
                   )}
                 </span>
@@ -363,9 +334,9 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
               <Input
                 type="number"
                 value={amount}
-                onChange={(e) => handleAmountChange(Number.parseFloat(e.target.value) || bet.minBet || 0.1)}
-                min={bet.minBet ?? 0.1}
-                max={bet.maxBet ?? 10}
+                onChange={(e) => handleAmountChange(Number.parseFloat(e.target.value) || bet.minimumBet || 0.1)}
+                min={bet.minimumBet ?? 0.1}
+                max={bet.maximumBet ?? 10}
                 step={0.1}
                 className="font-mono"
               />
@@ -374,16 +345,16 @@ export default function PlaceBetForm({ bet }: PlaceBetFormProps) {
 
             <Slider
               value={[amount]}
-              min={bet.minBet ?? 0.1}
-              max={bet.maxBet ?? 10}
+              min={bet.minimumBet ?? 0.1}
+              max={bet.maximumBet ?? 10}
               step={0.1}
               onValueChange={handleSliderChange}
               className="py-4"
             />
 
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Min: {formatSOL(bet.minBet ?? 0.1)}</span>
-              <span>Max: {formatSOL(bet.maxBet ?? 10)}</span>
+              <span>Min: {formatSOL(bet.minimumBet ?? 0.1)}</span>
+              <span>Max: {formatSOL(bet.maximumBet ?? 10)}</span>
             </div>
           </div>
 

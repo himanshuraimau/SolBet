@@ -14,11 +14,11 @@ import WalletBadge from "@/components/wallet/wallet-badge"
 import { useBettingHistory } from "@/lib/query/hooks/use-user-data"
 import { formatDistanceToNow } from "date-fns"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useWallet } from "@solana/wallet-adapter-react"
 
 export default function ProfilePage() {
+  const { publicKey, connected, disconnect } = useWallet();
   const { 
-    publicKey, 
-    connected, 
     balance, 
     refreshBalance, 
     userProfile, 
@@ -168,11 +168,7 @@ export default function ProfilePage() {
                 variant="outline" 
                 className="w-full justify-start text-accent-coral" 
                 onClick={() => {
-                  // Use the wallet adapter instead of window.solana
-                  const wallet = window.solana;
-                  if (wallet && wallet.disconnect) {
-                    wallet.disconnect();
-                  }
+                  if (disconnect) disconnect();
                 }}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Disconnect Wallet
@@ -214,7 +210,7 @@ export default function ProfilePage() {
                       ) : (
                         <div className="space-y-4">
                           {bettingHistory.map((bet: any, index: number) => (
-                            <div key={bet.id || `bet-${index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            <div key={`all-${bet.id || index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                               <div>
                                 <div className="font-medium">{bet.title}</div>
                                 <div className="text-sm text-muted-foreground">
@@ -245,8 +241,8 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                           {bettingHistory
                             .filter((bet: any) => bet.type === 'created_bet')
-                            .map((bet: any) => (
-                              <div key={bet.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            .map((bet: any, index: number) => (
+                              <div key={`created-${bet.id || index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                                 <div>
                                   <div className="font-medium">{bet.title}</div>
                                   <div className="text-sm text-muted-foreground">
@@ -275,8 +271,8 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                           {bettingHistory
                             .filter((bet: any) => bet.type === 'WIN')
-                            .map((bet: any) => (
-                              <div key={bet.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            .map((bet: any, index: number) => (
+                              <div key={`win-${bet.id || index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                                 <div>
                                   <div className="font-medium">{bet.title}</div>
                                   <div className="text-sm text-muted-foreground">
@@ -305,8 +301,8 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                           {bettingHistory
                             .filter((bet: any) => bet.type === 'LOSS')
-                            .map((bet: any) => (
-                              <div key={bet.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            .map((bet: any, index: number) => (
+                              <div key={`loss-${bet.id || index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                                 <div>
                                   <div className="font-medium">{bet.title}</div>
                                   <div className="text-sm text-muted-foreground">

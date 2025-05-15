@@ -1,153 +1,111 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatSOL, shortenAddress, calculateTimeLeft } from "@/lib/utils"
-import { Clock, Users, TrendingUp } from "lucide-react"
-import type { Bet } from "@/types/bet"
-import { formatDistanceToNow } from "date-fns"
+import { formatSOL } from "@/lib/utils"
+import { formatDateTime } from "@/lib/date-utils"
+import { Bet } from "@/types/bet"
+import { Users, Clock, Calendar } from "lucide-react"
 
 interface BetDetailsProps {
   bet: Bet
+  timeLeft?: string | null
 }
 
-export default function BetDetails({ bet }: BetDetailsProps) {
-  const timeLeft = calculateTimeLeft(bet.endTime)
-  const totalPool = bet.yesPool + bet.noPool
-  const yesPercentage = totalPool > 0 ? (bet.yesPool / totalPool) * 100 : 50
-  const noPercentage = totalPool > 0 ? (bet.noPool / totalPool) * 100 : 50
+export default function BetDetails({ bet, timeLeft }: BetDetailsProps) {
+  // Format creator address for display
+  const creatorAddress = bet.creatorAddress || "Unknown";
+  const formattedCreator = creatorAddress ? 
+    `${creatorAddress.substring(0, 6)}...${creatorAddress.substring(creatorAddress.length - 4)}` : 
+    "Unknown";
+
+  // Get status badge color
+  const getStatusColor = () => {
+    if (bet.status === "resolved") return "green";
+    if (bet.status === "active") return "blue";
+    if (new Date(bet.endTime) <= new Date()) return "yellow";
+    return "gray";
+  }
+
+  // Get status text
+  const getStatusText = () => {
+    if (bet.status === "resolved") {
+      return `Resolved: ${bet.outcome === "yes" ? "YES" : "NO"}`;
+    }
+    if (bet.status === "active" && new Date(bet.endTime) <= new Date()) {
+      return "Expired";
+    }
+    return bet.status.charAt(0).toUpperCase() + bet.status.slice(1);
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline" className="capitalize bg-muted/50">
-                {bet.category}
-              </Badge>
-              <Badge variant="outline" className={getBetStatusClass(bet.status)}>
-                {getBetStatusLabel(bet.status)}
-              </Badge>
-            </div>
-            <CardTitle className="text-2xl">{bet.title}</CardTitle>
-            <CardDescription className="mt-2">
-              Created by <span className="font-mono">{shortenAddress(bet.creator)}</span> •{" "}
-              {formatDistanceToNow(bet.startTime, { addSuffix: true })}
-            </CardDescription>
-          </div>
-
-          <div className="flex flex-col items-end">
-            <div className="text-sm text-muted-foreground flex items-center">
-              <Clock className="mr-1 h-4 w-4" />
-              {timeLeft.days > 0 ? (
-                <span>
-                  {timeLeft.days}d {timeLeft.hours}h remaining
-                </span>
-              ) : timeLeft.hours > 0 ? (
-                <span>
-                  {timeLeft.hours}h {timeLeft.minutes}m remaining
-                </span>
-              ) : (
-                <span>
-                  {timeLeft.minutes}m {timeLeft.seconds}s remaining
-                </span>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground flex items-center mt-1">
-              <Users className="mr-1 h-4 w-4" />
-              <span>{bet.participants.length} participants</span>
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <p>{bet.description}</p>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Current Odds</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Yes</span>
-                <span className="text-sm text-muted-foreground">
-                  {yesPercentage.toFixed(1)}% • {formatSOL(bet.yesPool)}
-                </span>
+    <div className="w-full">
+      <Card className="border border-muted bg-gradient-to-b from-card/40 to-card/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-2xl">{bet.title}</CardTitle>
+          <CardDescription>
+            Created by {formattedCreator}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <p className="text-muted-foreground">{bet.description}</p>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-3">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="text-sm text-muted-foreground">Participants</div>
+                  <div className="font-medium">{bet.participants?.length || 0}</div>
+                </div>
               </div>
-              <div className="w-full bg-muted rounded-full h-3">
-                <div className="bg-accent-green h-3 rounded-full" style={{ width: `${yesPercentage}%` }}></div>
+              
+              <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-3">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="text-sm text-muted-foreground">Time Left</div>
+                  <div className="font-medium">{timeLeft || "N/A"}</div>
+                </div>
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="text-sm text-muted-foreground">End Date</div>
+                  <div className="font-medium">{formatDateTime(bet.endTime)}</div>
+                </div>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">No</span>
-                <span className="text-sm text-muted-foreground">
-                  {noPercentage.toFixed(1)}% • {formatSOL(bet.noPool)}
-                </span>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-sm text-muted-foreground">Total Pool</div>
+                <div className="font-mono text-lg font-medium">{formatSOL(bet.yesPool + bet.noPool)}</div>
               </div>
-              <div className="w-full bg-muted rounded-full h-3">
-                <div className="bg-accent-coral h-3 rounded-full" style={{ width: `${noPercentage}%` }}></div>
+              
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-sm text-muted-foreground">Yes Pool</div>
+                <div className="font-mono text-lg font-medium text-accent-green">{formatSOL(bet.yesPool)}</div>
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-sm text-muted-foreground">No Pool</div>
+                <div className="font-mono text-lg font-medium text-accent-coral">{formatSOL(bet.noPool)}</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-sm text-muted-foreground">Min Bet</div>
+                <div className="font-mono font-medium">{formatSOL(bet.minimumBet)}</div>
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-sm text-muted-foreground">Max Bet</div>
+                <div className="font-mono font-medium">{formatSOL(bet.maximumBet)}</div>
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="text-sm text-muted-foreground">Total Pool</div>
-            <div className="text-xl font-mono font-medium mt-1 flex items-center">
-              <TrendingUp className="mr-2 h-4 w-4 text-accent-green" />
-              {formatSOL(totalPool)}
-            </div>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="text-sm text-muted-foreground">Min Bet</div>
-            <div className="text-xl font-mono font-medium mt-1">{formatSOL(bet.minimumBet)}</div>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="text-sm text-muted-foreground">Max Bet</div>
-            <div className="text-xl font-mono font-medium mt-1">{formatSOL(bet.maximumBet)}</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   )
-}
-
-function getBetStatusLabel(status: string) {
-  switch (status) {
-    case "active":
-      return "Active"
-    case "closed":
-      return "Closed"
-    case "resolved_yes":
-      return "Resolved (Yes)"
-    case "resolved_no":
-      return "Resolved (No)"
-    case "disputed":
-      return "Disputed"
-    default:
-      return status
-  }
-}
-
-function getBetStatusClass(status: string) {
-  switch (status) {
-    case "active":
-      return "bg-accent-green/10 text-accent-green border-accent-green/20"
-    case "closed":
-      return "bg-muted text-muted-foreground"
-    case "resolved_yes":
-      return "bg-primary-yellow/10 text-primary-yellow border-primary-yellow/20"
-    case "resolved_no":
-      return "bg-primary-yellow/10 text-primary-yellow border-primary-yellow/20"
-    case "disputed":
-      return "bg-accent-coral/10 text-accent-coral border-accent-coral/20"
-    default:
-      return ""
-  }
 }

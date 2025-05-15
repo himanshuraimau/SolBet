@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadialBarChart, RadialBar, ResponsiveContainer, Tooltip, type TooltipProps, Legend } from "recharts"
 import { useBetStatistics } from "@/lib/query/hooks/use-user-data"
 
+// Update the interface to make props optional since we're using mock data
 interface WinProbabilityProps {
-  yesPercentage: number
-  noPercentage: number
   className?: string
+  // Make these optional since we're calculating them from fetched data
+  yesPercentage?: number
+  noPercentage?: number
 }
 
 export default function WinProbability({ className }: WinProbabilityProps) {

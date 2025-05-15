@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {BetHistoryChart} from "@/components/charts/bet-history-chart"
@@ -10,8 +10,39 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { formatSOL } from "@/lib/utils"
 import type { TimeFrame } from "@/types/common"
 import FadeIn from "@/components/motion/fade-in"
-import AnimatedNumber from "@/components/motion/animated-number"
 import { useUserStats } from "@/lib/query/hooks/use-user-data"
+
+// Simple animated number component
+function AnimatedNumber({ value, formatValue = (v: number) => v.toString() }: { value: number, formatValue?: (v: number) => string }) {
+  const [animatedValue, setAnimatedValue] = useState(0);
+  
+  useEffect(() => {
+    const duration = 1000; // Animation duration in ms
+    const frameDuration = 1000 / 60; // 60 fps
+    const totalFrames = Math.round(duration / frameDuration);
+    let frame = 0;
+    
+    const counter = setInterval(() => {
+      frame++;
+      const progress = frame / totalFrames;
+      const currentValue = easeOutQuad(progress) * value;
+      setAnimatedValue(currentValue);
+      
+      if (frame === totalFrames) {
+        clearInterval(counter);
+      }
+    }, frameDuration);
+    
+    return () => clearInterval(counter);
+  }, [value]);
+  
+  // Easing function for smoother animation
+  function easeOutQuad(t: number): number {
+    return t * (2 - t);
+  }
+  
+  return <>{formatValue(animatedValue)}</>;
+}
 
 export default function AnalyticsPage() {
   const { connected } = useWallet()

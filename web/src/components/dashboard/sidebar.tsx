@@ -1,155 +1,102 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import {
-  LayoutDashboard,
-  Plus,
-  Search,
+  Home,
   BarChart3,
-  User,
+  Users,
   Settings,
   HelpCircle,
+  Bell,
   Menu,
   X,
-  Users,
-  Bell,
-  ChevronLeft,
-  ChevronRight,
+  LogOut,
+  Plus,
+  Search,
+  UserCircle
+  // Add any other icons you're using
 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
-
-const sidebarLinks = [
-  {
-    name: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    name: "Create Bet",
-    href: "/create-bet",
-    icon: Plus,
-  },
-  {
-    name: "Browse Bets",
-    href: "/browse",
-    icon: Search,
-  },
-  {
-    name: "Analytics",
-    href: "/analytics",
-    icon: BarChart3,
-  },
-  {
-    name: "Community",
-    href: "/community",
-    icon: Users,
-  },
-  {
-    name: "Profile",
-    href: "/profile",
-    icon: User,
-  },
-]
-
-
 
 interface SidebarProps {
   className?: string
+  onCollapsedChange?: (collapsed: boolean) => void
 }
 
-export default function Sidebar({ className }: SidebarProps) {
-  const pathname = usePathname()
-  const [mobileOpen, setMobileOpen] = useState(false)
+export default function Sidebar({ className, onCollapsedChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const pathname = usePathname()
+
+  // Handle collapse state changes
+  const toggleCollapsed = () => {
+    const newState = !collapsed
+    setCollapsed(newState)
+    onCollapsedChange?.(newState)
+  }
+
+  // Define navigation items - using previously existing paths
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/browse", label: "Browse Bets", icon: Search },
+    { href: "/create-bet", label: "Create Bet", icon: Plus },
+    { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/profile", label: "Profile", icon: UserCircle }
+
+  ]
 
   return (
-    <>
-      {/* Mobile toggle */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="fixed bottom-4 right-4 z-50 rounded-full shadow-lg md:hidden"
-        onClick={() => setMobileOpen(!mobileOpen)}
-      >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
+    <aside
+      className={cn(
+        "h-screen bg-background border-r border-border transition-all duration-300",
+        collapsed ? "w-[80px]" : "w-[256px]",
+        className
+      )}
+    >
+      <div className="h-full flex flex-col">
+        {/* Sidebar header with logo/title and collapse toggle */}
+        <div className={cn(
+          "h-16 flex items-center px-4 border-b border-border",
+          collapsed ? "justify-center" : "justify-between"
+        )}>
+          {!collapsed && <Link className="font-heading text-2xl font-bold text-gradient-primary" href="/">SolBet</Link>}
+          <button
+            onClick={toggleCollapsed}
+            className="p-2 rounded-md hover:bg-accent"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <Menu size={20} /> : <X size={20} />}
+          </button>
+        </div>
 
-      {/* Sidebar */}
-      <AnimatePresence>
-        <motion.div
-          initial={false}
-          animate={{
-            width: collapsed ? 72 : 256,
-            transition: { duration: 0.3 },
-          }}
-          className={cn(
-            "fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-background transition-all md:translate-x-0",
-            mobileOpen ? "translate-x-0" : "-translate-x-full",
-            className,
-          )}
-        >
-          <div className="flex h-16 items-center border-b px-4 justify-between">
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Link href="/" className="flex items-center gap-2">
-                    <span className="font-heading text-2xl font-bold text-gradient-primary">SolBet</span>
-                  </Link>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        {/* Navigation items */}
+        <div className="flex-1 py-6 px-3 flex flex-col gap-2 overflow-y-auto">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
 
-            {/* Toggle button */}
-            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setCollapsed(!collapsed)}>
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
-          </div>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center rounded-md px-3 py-2 text-sm transition-colors",
+                  collapsed ? "justify-center px-0" : "justify-start",
+                  isActive
+                    ? "bg-primary-gradient text-text-plum"
+                    : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon size={20} className={cn(collapsed ? "mx-0" : "mr-3")} />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            )
+          })}
+        </div>
 
-          <div className="flex flex-1 flex-col justify-between overflow-y-auto p-4">
-            <nav className="space-y-1">
-              {sidebarLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    pathname === link.href
-                      ? "bg-primary-gradient text-text-plum"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    collapsed ? "justify-center" : "",
-                  )}
-                  onClick={() => setMobileOpen(false)}
-                  title={collapsed ? link.name : undefined}
-                >
-                  <link.icon className="h-5 w-5" />
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={{ opacity: 0, width: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {link.name}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </Link>
-              ))}
-            </nav>
 
-          </div>
-        </motion.div>
-      </AnimatePresence>
-    </>
+      </div>
+    </aside>
   )
 }

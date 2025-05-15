@@ -38,7 +38,7 @@ export default function PortfolioPerformance({ timeFrame, className }: Portfolio
           <div className="h-[300px] flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">Loading performance data...</div>
           </div>
-        ) : data.length === 0 ? (
+        ) : data?.length === 0 ? (
           <div className="h-[300px] flex items-center justify-center">
             <div className="text-muted-foreground">No performance data available</div>
           </div>

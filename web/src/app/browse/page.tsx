@@ -8,63 +8,81 @@ import { BetPagination } from "@/components/bet/bet-pagination"
 import { BetFilter } from "@/components/bet/bet-filter"
 import { useBets } from "@/hooks/bet/use-bets"
 import { BetTab } from "@/types/bet"
+import { useEffect, useState } from "react"
+import { ThemeToggle } from "@/components/theme/theme-toggle"
 
 export default function BrowsePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Get current query parameters
-  const currentTab = searchParams.get("tab") || "all"
-  const currentPage = parseInt(searchParams.get("page") || "1")
-  const currentSearch = searchParams.get("search") || ""
-  const currentCategory = searchParams.get("category") || ""
+  // State to handle parameters to prevent hydration issues
+  const [params, setParams] = useState({
+    tab: "all",
+    page: 1,
+    search: "",
+    category: ""
+  });
 
-  // Fetch bets using the custom hook
-  const { bets, pagination, isLoading } = useBets({
-    tab: currentTab as BetTab,
-    page: currentPage,
-    search: currentSearch,
-    category: currentCategory
-  })
+  // Sync params with URL on client-side only
+  useEffect(() => {
+    const tab = searchParams.get("tab") || "all";
+    const page = parseInt(searchParams.get("page") || "1");
+    const search = searchParams.get("search") || "";
+    const category = searchParams.get("category") || "";
+    
+    setParams({ tab: tab as BetTab, page, search, category });
+  }, [searchParams]);
+
+  // Fetch bets using the custom hook - now using state values
+  const { data, isLoading } = useBets({
+    tab: params.tab as BetTab,
+    page: params.page,
+    search: params.search,
+    category: params.category
+  });
   
+  // Extract bets and pagination from data
+  const bets = data?.data?.bets || [];
+  const pagination = data?.data?.pagination || { page: 1, pageSize: 12, totalItems: 0, totalPages: 1 };
+
   // Handle tab change
   const handleTabChange = (value: string) => {
     // Reset page when changing tabs
-    updateQueryParams(value, 1, currentSearch, currentCategory)
+    updateQueryParams(value, 1, params.search, params.category)
   }
   
   // Handle page change
   const handlePageChange = (newPage: number) => {
-    updateQueryParams(currentTab, newPage, currentSearch, currentCategory)
+    updateQueryParams(params.tab, newPage, params.search, params.category)
   }
   
   // Handle search
   const handleSearch = (search: string) => {
-    updateQueryParams(currentTab, 1, search, currentCategory)
+    updateQueryParams(params.tab, 1, search, params.category)
   }
   
   // Handle category filter
   const handleCategoryFilter = (category: string) => {
-    updateQueryParams(currentTab, 1, currentSearch, category)
+    updateQueryParams(params.tab, 1, params.search, category)
   }
   
   // Update query parameters and trigger fetch
   const updateQueryParams = (tab: string, page: number, search?: string, category?: string) => {
     const params = new URLSearchParams()
     
-    if (tab !== "all") {
+    if (tab && tab !== "all") {
       params.set("tab", tab)
     }
     
-    if (page > 1) {
+    if (page && page > 1) {
       params.set("page", page.toString())
     }
     
-    if (search) {
+    if (search && search.trim()) {
       params.set("search", search)
     }
     
-    if (category) {
+    if (category && category.trim()) {
       params.set("category", category)
     }
     
@@ -79,15 +97,18 @@ export default function BrowsePage() {
           <p className="text-muted-foreground mt-1">Discover and join bets on any topic</p>
         </div>
         
-        <BetFilter 
-          searchValue={currentSearch}
-          category={currentCategory}
-          onSearch={handleSearch}
-          onCategoryChange={handleCategoryFilter}
-        />
+        <div className="flex gap-4 items-center">
+          <BetFilter 
+            searchValue={params.search}
+            category={params.category}
+            onSearch={handleSearch}
+            onCategoryChange={handleCategoryFilter}
+          />
+          <ThemeToggle />
+        </div>
       </div>
 
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+      <Tabs value={params.tab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="bg-muted/50 mb-8">
           <TabsTrigger
             value="all"
@@ -129,7 +150,7 @@ export default function BrowsePage() {
           ) : (
             <div className="flex justify-center items-center h-64">
               <p className="text-muted-foreground">
-                {currentTab === "my-bets" && !searchParams.has("wallet")
+                {params.tab === "my-bets" && !searchParams.has("wallet")
                   ? "Connect your wallet to view your bets"
                   : "No bets found matching your criteria"}
               </p>

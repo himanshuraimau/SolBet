@@ -1,122 +1,121 @@
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { safeApiHandler, ApiError, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-interface PlaceBetRequest {
-  walletAddress: string;
-  betId: string;
-  position: "yes" | "no";
-  amount: number;
-  onChainTxId?: string; // Optional on-chain transaction ID
-}
-
-/**
- * @route POST /api/bets/place
- * @description Place a bet on a specific outcome
- * @body {Object} body - Contains wallet address, bet ID, position, amount, and optional transaction ID
- * @returns {Object} User bet information
- */
-export async function POST(request: NextRequest) {
-  return safeApiHandler(async () => {
-    // Parse the request body
-    const body: PlaceBetRequest = await request.json();
-    const { walletAddress, betId, position, amount, onChainTxId } = body;
+export async function POST(req: NextRequest) {
+  try {
+    // Parse request data
+    const data = await req.json();
+    
+    // Log the incoming data
+    console.log('Received bet placement data:', {
+      betId: data.betId,
+      position: data.position,
+      amount: data.amount,
+      walletAddress: data.walletAddress,
+      onChainTxId: data.onChainTxId ? `${data.onChainTxId.substring(0, 10)}...` : 'none'
+    });
     
     // Validate required fields
-    if (!betId || !position || !amount) {
-      return ApiError.badRequest("Missing required fields");
+    if (!data.betId || !data.position || !data.amount || !data.walletAddress) {
+      return NextResponse.json({
+        success: false,
+        error: 'Missing required fields'
+      }, { status: 400 });
     }
-
-    const user = await validateUserByWalletAddress(walletAddress);
-
-    // Find the bet
-    const bet = await prisma.bet.findUnique({
-      where: { id: betId },
-    });
-
-    if (!bet) {
-      return ApiError.notFound("Bet not found");
-    }
-
-    // Validate that the bet is still active
-    if (bet.status !== "active") {
-      return ApiError.badRequest("This bet is no longer active");
-    }
-
-    // Validate that the bet hasn't expired
-    if (new Date(bet.endTime) <= new Date()) {
-      return ApiError.badRequest("This bet has expired");
-    }
-
-    // Validate the bet amount
-    if (amount < bet.minimumBet || amount > bet.maximumBet) {
-      return ApiError.badRequest(`Bet amount must be between ${bet.minimumBet} and ${bet.maximumBet} SOL`);
-    }
-
-    // Check if the user has already placed a bet on this bet
-    const existingBet = await prisma.userBet.findUnique({
-      where: {
-        userId_betId: {
+    
+    try {
+      // Find or create user by wallet address
+      let user = await prisma.user.findUnique({
+        where: {
+          walletAddress: data.walletAddress
+        }
+      });
+      
+      if (!user) {
+        // Auto-create user by wallet address
+        user = await prisma.user.create({
+          data: {
+            walletAddress: data.walletAddress,
+          },
+        });
+      }
+      
+      // Find bet
+      const bet = await prisma.bet.findUnique({
+        where: {
+          id: data.betId
+        }
+      });
+      
+      if (!bet) {
+        return NextResponse.json({
+          success: false,
+          error: 'Bet not found'
+        }, { status: 404 });
+      }
+      
+      // Convert amount to lamports (as string)
+      const amountInLamports = Math.round(data.amount * 1e9).toString();
+      
+      // Create user bet record
+      const userBet = await prisma.userBet.create({
+        data: {
           userId: user.id,
           betId: bet.id,
+          betPublicKey: bet.betPublicKey,
+          userBetPublicKey: data.onChainTxId || `generated-${Date.now()}`,
+          amount: amountInLamports,
+          position: data.position.toUpperCase() === 'YES' ? 'YES' : 'NO',
+          isClaimed: false
+        }
+      });
+      
+      // Update pool amounts in the bet
+      const currentYesPool = BigInt(bet.yesPool);
+      const currentNoPool = BigInt(bet.noPool);
+      const currentTotalPool = BigInt(bet.totalPool);
+      const betAmountBigInt = BigInt(amountInLamports);
+      
+      const updatedBet = await prisma.bet.update({
+        where: {
+          id: bet.id
         },
-      },
-    });
-
-    if (existingBet) {
-      return ApiError.badRequest("You have already placed a bet on this event");
+        data: {
+          yesPool: data.position.toLowerCase() === 'yes' 
+            ? (currentYesPool + betAmountBigInt).toString() 
+            : bet.yesPool,
+          noPool: data.position.toLowerCase() === 'no' 
+            ? (currentNoPool + betAmountBigInt).toString() 
+            : bet.noPool,
+          totalPool: (currentTotalPool + betAmountBigInt).toString()
+        }
+      });
+      
+      return NextResponse.json({
+        success: true,
+        userBet: {
+          id: userBet.id,
+          position: userBet.position,
+          amount: parseFloat(userBet.amount) / 1e9
+        }
+      });
+      
+    } catch (dbError) {
+      console.error('Database operation error:', dbError);
+      return NextResponse.json({ 
+        success: false,
+        error: 'Database operation failed',
+        details: dbError instanceof Error ? dbError.message : 'Unknown database error'
+      }, { status: 500 });
     }
-
-    // Create the user bet
-    const userBet = await prisma.userBet.create({
-      data: {
-        position,
-        amount,
-        userId: user.id,
-        betId: bet.id,
-        onChainTxId, // Store the on-chain transaction ID if provided
-      },
-    });
-
-    // Update the bet pools
-    await prisma.bet.update({
-      where: { id: bet.id },
-      data: {
-        yesPool: position === "yes" ? { increment: amount } : undefined,
-        noPool: position === "no" ? { increment: amount } : undefined,
-      },
-    });
-
-    // Update user stats
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        betsJoined: { increment: 1 },
-      },
-    });
-
-    // Create a transaction record
-    await prisma.transaction.create({
-      data: {
-        amount,
-        type: "bet",
-        status: "confirmed",
-        userId: user.id,
-        betId: bet.id,
-        txHash: onChainTxId, // Store the on-chain transaction ID
-      },
-    });
-
-    // Return success response
-    return formatApiResponse({
-      success: true,
-      userBet: {
-        id: userBet.id,
-        position: userBet.position,
-        amount: userBet.amount,
-        timestamp: userBet.timestamp,
-        walletAddress,
-      },
-    });
-  });
+    
+  } catch (error) {
+    console.error('Error placing bet:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to place bet', 
+      details: errorMessage 
+    }, { status: 500 });
+  }
 }

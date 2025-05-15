@@ -1,64 +1,74 @@
+// /app/src/app/api/users/transactions/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { safeApiHandler, validateUserByWalletAddress, formatApiResponse } from "@/lib/api-utils";
 
 /**
  * @route GET /api/users/transactions
- * @description Get transactions for a user by wallet address
- * @param {string} address - The user's wallet address
- * @returns {Object} List of transactions with related bet information
+ * @desc Fetch user's transactions
  */
 export async function GET(request: NextRequest) {
-  return safeApiHandler(async () => {
+  try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
-    
-    const user = await validateUserByWalletAddress(address!);
 
-    // Get user transactions
-    const userTransactions = await prisma.transaction.findMany({
-      where: {
-        userId: user.id,
+    if (!address) {
+      return NextResponse.json(
+        { error: "Wallet address is required" },
+        { status: 400 }
+      );
+    }
+
+    // Find the user by wallet address
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: address },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { transactions: [] },
+        { status: 200 }
+      );
+    }
+
+    // Get the user's bets as transactions
+    const userBets = await prisma.userBet.findMany({
+      where: { userId: user.id },
+      include: {
+        bet: {
+          select: {
+            title: true,
+            status: true,
+            outcome: true
+          }
+        }
       },
       orderBy: {
-        timestamp: "desc",
-      },
-      take: 50, // Limit to recent 50 transactions
+        createdAt: 'desc'
+      }
     });
 
-    // Get bet information for bet-related transactions
-    const betIds = userTransactions
-      .filter(t => t.betId !== null)
-      .map(t => t.betId);
-
-    const bets = await prisma.bet.findMany({
-      where: {
-        id: {
-          in: betIds as string[],
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-      },
+    // Transform UserBet to transaction format
+    const transactions = userBets.map(userBet => {
+      const isWin = userBet.bet.status === 'RESOLVED' && 
+                    userBet.bet.outcome === userBet.position;
+                    
+      return {
+        id: userBet.id,
+        type: isWin ? "winnings" : "bet",
+        amount: parseFloat(userBet.amount) / 1000000000, // Convert lamports to SOL
+        timestamp: userBet.createdAt.toISOString(),
+        betId: userBet.betId,
+        betTitle: userBet.bet.title,
+        status: userBet.isClaimed && isWin ? "completed" : userBet.bet.status === 'RESOLVED' ? "completed" : "pending"
+      };
     });
 
-    const betsMap = new Map(bets.map(bet => [bet.id, bet.title]));
-
-    // Format the transactions
-    const formattedTransactions = userTransactions.map(t => ({
-      id: t.id,
-      type: t.type,
-      amount: Number(t.amount),
-      timestamp: t.timestamp.toISOString(),
-      betId: t.betId || undefined,
-      betTitle: t.betId ? betsMap.get(t.betId) : undefined,
-      txHash: t.txHash || undefined,
-      status: t.status,
-    }));
-
-    return formatApiResponse({
-      transactions: formattedTransactions,
-    });
-  });
+    return NextResponse.json({ transactions });
+  } catch (error) {
+    console.error("Error fetching user transactions:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch user transactions" },
+      { status: 500 }
+    );
+  }
 }

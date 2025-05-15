@@ -1,65 +1,77 @@
-import { Button } from "@/components/ui/button"
-import { PaginationInfo } from "@/types/bet"
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
 
 interface BetPaginationProps {
-  pagination: PaginationInfo
-  onPageChange: (page: number) => void
+  pagination: PaginationInfo;
+  onPageChange: (page: number) => void;
 }
 
 export function BetPagination({ pagination, onPageChange }: BetPaginationProps) {
-  if (pagination.totalPages <= 1) {
-    return null
+  const { page, totalPages } = pagination;
+  
+  if (totalPages <= 1) {
+    return null; // Don't render pagination if there's only 1 page
   }
-
+  
+  // Calculate page numbers to show (show up to 5 pages)
+  const getPageNumbers = () => {
+    if (totalPages <= 5) {
+      // If 5 or fewer pages, show all
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    // If more than 5 pages, show current page and surrounding pages
+    let startPage = Math.max(1, page - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    
+    // Adjust if we're near the end
+    if (endPage - startPage < 4) {
+      startPage = Math.max(1, endPage - 4);
+    }
+    
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  };
+  
+  const pageNumbers = getPageNumbers();
+  
   return (
-    <div className="mt-12 flex justify-center gap-2">
+    <div className="flex justify-center items-center gap-1 mt-8">
       <Button
         variant="outline"
-        size="sm"
-        onClick={() => onPageChange(pagination.page - 1)}
-        disabled={pagination.page === 1}
+        size="icon"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
       >
-        Previous
+        <ChevronLeft className="h-4 w-4" />
       </Button>
       
-      {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-        // Show up to 5 pages. If we have more, show the first, last, and pages around the current one
-        let pageToShow = i + 1
-        
-        if (pagination.totalPages > 5) {
-          if (pagination.page <= 3) {
-            // First 5 pages
-            pageToShow = i + 1
-          } else if (pagination.page >= pagination.totalPages - 2) {
-            // Last 5 pages
-            pageToShow = pagination.totalPages - 4 + i
-          } else {
-            // Current page with 2 before and 2 after
-            pageToShow = pagination.page - 2 + i
-          }
-        }
-        
-        return (
-          <Button
-            key={pageToShow}
-            variant={pagination.page === pageToShow ? "default" : "outline"}
-            size="sm"
-            onClick={() => onPageChange(pageToShow)}
-            className={pagination.page === pageToShow ? "bg-primary-gradient text-text-plum" : ""}
-          >
-            {pageToShow}
-          </Button>
-        )
-      })}
+      {pageNumbers.map((p) => (
+        <Button
+          key={p}
+          variant={p === page ? "default" : "outline"}
+          size="sm"
+          onClick={() => onPageChange(p)}
+          className={p === page ? "bg-primary-gradient text-text-plum" : ""}
+        >
+          {p}
+        </Button>
+      ))}
       
       <Button
         variant="outline"
-        size="sm"
-        onClick={() => onPageChange(pagination.page + 1)}
-        disabled={pagination.page === pagination.totalPages}
+        size="icon"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page === totalPages}
       >
-        Next
+        <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
-  )
+  );
 }

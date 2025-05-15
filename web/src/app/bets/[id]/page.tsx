@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { useBet } from "@/lib/query/hooks/use-bets"
+import { useBetById } from "@/hooks/bet/use-bet-by-id" // Use the new hook
 import { useWallet } from "@solana/wallet-adapter-react"
 import ResolveBetForm from "@/components/bet/resolve-bet-form"
 import PlaceBetForm from "@/components/bet/place-bet-form"
 import WithdrawFundsForm from "@/components/bet/withdraw-funds-form"
+import BetDetails from "@/components/bet/bet-details"
+import ParticipantsList from "@/components/bet/participants-list"
+import OddsProgress from "@/components/charts/odds-progress"
+
 import { CardHeader, CardTitle, CardDescription, CardContent, Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatSOL } from "@/lib/utils"
 import { calculateTimeLeft, formatDateTime } from "@/lib/date-utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import FadeIn from "@/components/motion/fade-in"
 
 export default function BetPage() {
   const params = useParams()
@@ -20,28 +25,28 @@ export default function BetPage() {
   const [timeLeft, setTimeLeft] = useState<string | null>(null)
   const betId = params?.id as string
 
-  // Use the custom hook to get bet data
-  const { data: bet, isLoading, error, solanaBetData } = useBet(betId)
+  // Use the new hook that properly invalidates the cache
+  const { data: bet, isLoading, error } = useBetById(betId)
 
   // Check if the current user is the creator of the bet
-  const isCreator = bet?.creator === publicKey?.toString()
+  const isCreator = bet?.creatorAddress === publicKey?.toString()
   
   // Check if user has participated in this bet
-  const hasUserParticipated = bet?.participants?.some((p: { walletAddress: string | undefined }) => 
+  const hasUserParticipated = bet?.participants?.some(p => 
     p.walletAddress === publicKey?.toString()
   ) || false
   
   // Find user's bet details if they've participated
-  const userBet = bet?.participants?.find((p: { walletAddress: string | undefined }) => 
+  const userBet = bet?.participants?.find(p => 
     p.walletAddress === publicKey?.toString()
   )
   
   // Determine if user can withdraw funds:
-  // - If bet is resolved (resolved_yes or resolved_no)
+  // - If bet is resolved
   // - If bet has expired
   // - If user has participated
   const canWithdraw = hasUserParticipated && (
-    bet?.status.startsWith('resolved_') || 
+    bet?.status === 'resolved' || 
     (bet?.status === 'active' && new Date(bet?.endTime) <= new Date())
   )
 
@@ -63,113 +68,93 @@ export default function BetPage() {
   if (isLoading) {
     return (
       <div className="container mx-auto py-8 space-y-8">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-4 w-1/2 mt-2" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          </CardContent>
-        </Card>
+        <Skeleton className="h-[300px] w-full rounded-lg" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-2">
+            <Skeleton className="h-[400px] w-full rounded-lg" />
+          </div>
+          <div>
+            <Skeleton className="h-[400px] w-full rounded-lg" />
+          </div>
+        </div>
       </div>
     )
   }
 
   if (error || !bet) {
     return (
-      <div className="container mx-auto py-8 space-y-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error?.message || "Failed to load bet details"}
-          </AlertDescription>
-        </Alert>
+      <div className="text-center py-16">
+        <h2 className="text-2xl font-bold">Bet not found</h2>
+        <p className="text-muted-foreground mt-2">The bet you're looking for doesn't exist or has been removed.</p>
       </div>
     )
   }
 
   const hasExpired = new Date(bet.endTime) <= new Date()
+  const totalPool = bet.yesPool + bet.noPool
+  const yesPercentage = totalPool > 0 ? (bet.yesPool / totalPool) * 100 : 50
+  const noPercentage = totalPool > 0 ? (bet.noPool / totalPool) * 100 : 50
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      {/* Bet details card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{bet.title}</CardTitle>
-          <CardDescription>
-            Created by {bet.creator.slice(0, 6)}...{bet.creator.slice(-4)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-500">{bet.description}</p>
-            
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div>
-                <p className="text-sm text-gray-500">Total Pool</p>
-                <p className="font-medium">{formatSOL(bet.yesPool + bet.noPool)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Yes Pool</p>
-                <p className="font-medium">{formatSOL(bet.yesPool)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">No Pool</p>
-                <p className="font-medium">{formatSOL(bet.noPool)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <p className="font-medium capitalize">{bet.status}</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <div>
-                <p className="text-sm text-gray-500">Min Bet</p>
-                <p className="font-medium">{formatSOL(bet.minimumBet)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Max Bet</p>
-                <p className="font-medium">{formatSOL(bet.maximumBet)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Expires</p>
-                <p className="font-medium">
-                  {formatDateTime(bet.endTime)}
-                  {!hasExpired && timeLeft && (
-                    <span className="ml-2 text-xs text-gray-500">({timeLeft})</span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="container mx-auto py-10 space-y-10">
+      {/* Bet details section */}
+      <FadeIn>
+        <Card className="p-2">
+          <BetDetails bet={bet} timeLeft={timeLeft} />
+        </Card>
+      </FadeIn>
 
-      {/* Place bet form */}
-      {bet.status === "active" && !hasExpired && (
-        <PlaceBetForm bet={bet} />
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div className="md:col-span-2 space-y-10">
+          <FadeIn delay={0.1}>
+            <Card className="p-6">
+              <ParticipantsList participants={bet.participants} />
+            </Card>
+          </FadeIn>
 
-      {/* Resolve bet form - only shown to the creator */}
-      {isCreator && (
-        <ResolveBetForm bet={bet} isCreator={isCreator} />
-      )}
+          <FadeIn delay={0.2}>
+            <Card className="p-6">
+              <CardHeader>
+                <CardTitle>Bet Odds</CardTitle>
+                <CardDescription>Current distribution of the betting pool</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <OddsProgress yesPool={bet.yesPool} noPool={bet.noPool} />
+              </CardContent>
+            </Card>
+          </FadeIn>
+        </div>
+        
+        <div className="space-y-8">
+          <FadeIn delay={0.4} direction="left">
+            {/* Place bet form */}
+            {bet.status === "active" && !hasExpired && (
+              <Card className="p-4">
+                <PlaceBetForm bet={bet} />
+              </Card>
+            )}
 
-      {/* Withdraw funds form - shown to participants */}
-      {publicKey && (
-        <WithdrawFundsForm 
-          bet={bet} 
-          userBetAccount={userBet?.onChainUserBetAccount} 
-          canWithdraw={canWithdraw}
-          hasUserParticipated={hasUserParticipated}
-        />
-      )}
+            {/* Resolve bet form - only shown to the creator */}
+            {isCreator && bet.status === "active" && (
+              <Card className="p-4 mt-6">
+                <ResolveBetForm bet={bet} isCreator={isCreator} />
+              </Card>
+            )}
+
+            {/* Withdraw funds form - shown to participants */}
+            {publicKey && (
+              <Card className="p-4 mt-6">
+                <WithdrawFundsForm 
+                  bet={bet} 
+                  userBetAccount={userBet?.onChainUserBetAccount} 
+                  canWithdraw={canWithdraw}
+                  hasUserParticipated={hasUserParticipated}
+                />
+              </Card>
+            )}
+          </FadeIn>
+        </div>
+      </div>
     </div>
   )
 }

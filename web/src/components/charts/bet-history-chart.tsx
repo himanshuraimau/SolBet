@@ -37,7 +37,7 @@ export function BetHistoryChart({ timeFrame: externalTimeFrame }: BetHistoryChar
   }
 
   // Group bets by date and count them
-  const aggregatedData = data.reduce((acc, bet) => {
+  const aggregatedData = data ? data.reduce((acc, bet) => {
     const date = new Date(bet.timestamp)
     let dateKey: string
     
@@ -68,7 +68,7 @@ export function BetHistoryChart({ timeFrame: externalTimeFrame }: BetHistoryChar
     }
     
     return acc
-  }, {} as Record<string, { name: string; wins: number; losses: number }>)
+  }, {} as Record<string, { name: string; wins: number; losses: number }>) : {};
 
   const chartData = Object.values(aggregatedData)
 

@@ -14,98 +14,80 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model to store wallet information
+// User model corresponding to User interface
 model User {
-  id            String    @id @default(cuid())
-  walletAddress String    @unique
-  displayName   String?
-  avatar        String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Stats
-  betsCreated   Int       @default(0)
-  betsJoined    Int       @default(0)
-  winRate       Float     @default(0)
-  totalWinnings Float     @default(0)
+  id                String     @id @default(uuid())
+  walletAddress     String     @unique // Solana wallet address (as string)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   
-  // Preferences
-  theme         String    @default("system")
-  notifications Boolean   @default(true)
-
-  // Relations
-  bets          Bet[]     @relation("CreatedBets")
-  participations UserBet[]
-  transactions  Transaction[]
-
+  // Relationships
+  userBets          UserBet[]  // User's bets
+  createdBets       Bet[]      // Bets created by this user
+  
   @@index([walletAddress])
 }
 
-// Bet model
+// Bet model corresponding to BetState interface
 model Bet {
-  id          String      @id @default(cuid())
-  title       String
-  description String?     @db.Text
-  category    String
-  yesPool     Float       @default(0)
-  noPool      Float       @default(0)
-  minimumBet  Float
-  maximumBet  Float
-  startTime   DateTime
-  endTime     DateTime
-  status      String      @default("active")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String     @id @default(uuid())
+  betPublicKey      String     @unique // Solana public key for the bet account
+  creatorId         String     // Reference to creator's id
+  creator           User       @relation(fields: [creatorId], references: [id])
+  escrowAccount     String     // Solana public key for escrow
+  totalPool         String     // BigInt as string
+  yesPool           String     // BigInt as string
+  noPool            String     // BigInt as string
+  expiresAt         DateTime   // Converted from Unix timestamp
+  status            BetStatus  @default(ACTIVE)
+  outcome           BetOutcome?
+  minBetAmount      String     // BigInt as string
+  maxBetAmount      String     // BigInt as string
+  title             String     // Add this field
+  description       String     // Add this field  
+  category          String     // Add this field
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   
-  // Solana blockchain references
-  onChainBetAddress  String?    // Reference to bet account on Solana
-  onChainEscrowAddress String?  // Reference to escrow account on Solana
+  // Relationships
+  userBets          UserBet[]  // All user bets on this bet
   
-  // Relations
-  creatorId   String
-  creator     User        @relation("CreatedBets", fields: [creatorId], references: [id])
-  participants UserBet[]
-
   @@index([creatorId])
-  @@index([category])
   @@index([status])
-  @@index([onChainBetAddress])
+  @@index([expiresAt])
 }
 
-// UserBet tracks a user's participation in a bet
+// UserBet model corresponding to UserBet interface
 model UserBet {
-  id          String      @id @default(cuid())
-  position    String      // "yes" or "no"
-  amount      Float
-  timestamp   DateTime    @default(now())
-  claimed     Boolean     @default(false)
-  onChainTxId String?     // Transaction ID on Solana blockchain
+  id                String     @id @default(uuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id])
+  betId             String
+  bet               Bet        @relation(fields: [betId], references: [id])
+  betPublicKey      String     // Public key for the bet account
+  userBetPublicKey  String     // Public key for this user's bet PDA
+  amount            String     // BigInt as string
+  position          BetOutcome
+  isClaimed         Boolean    @default(false)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   
-  // Relations
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  betId       String
-  bet         Bet         @relation(fields: [betId], references: [id])
-
   @@unique([userId, betId])
   @@index([userId])
   @@index([betId])
+  @@index([userBetPublicKey])
 }
 
-// Transaction model to track user's wallet transactions
-model Transaction {
-  id          String      @id @default(cuid())
-  amount      Float
-  type        String      // "bet", "deposit", "withdrawal", "winnings"
-  status      String      // "pending", "confirmed", "failed"
-  timestamp   DateTime    @default(now())
-  txHash      String?     // Transaction hash on blockchain
-  
-  // Relations
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  betId       String?     // Optional reference to a bet
+// Enum for BetStatus (matching your type definition)
+enum BetStatus {
+  ACTIVE
+  CLOSED
+  RESOLVED
+  DISPUTED
+}
 
-  @@index([userId])
-  @@index([type])
+// Enum for BetOutcome (matching your type definition)
+enum BetOutcome {
+  YES
+  NO
 }

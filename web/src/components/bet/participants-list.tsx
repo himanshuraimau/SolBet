@@ -1,68 +1,73 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatSOL, shortenAddress } from "@/lib/utils"
-import { formatDistanceToNow } from "date-fns"
-import type { Participant } from "@/types/bet"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatSOL } from "@/lib/utils"
+import { formatRelativeTime } from "@/lib/date-utils"
+
+// Define the Participant type expected by this component
+export interface Participant {
+  walletAddress: string;
+  position: "yes" | "no";  // Strict literal type
+  amount: number;
+  timestamp: Date;
+}
 
 interface ParticipantsListProps {
-  participants: Participant[]
+  participants: Participant[];
 }
 
 export default function ParticipantsList({ participants }: ParticipantsListProps) {
-  if (!participants.length) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Participants</CardTitle>
-          <CardDescription>Be the first to place a bet!</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">No participants yet</div>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Type guard function to ensure data conforms to expected shape
+  const formatParticipant = (participant: any): Participant => {
+    return {
+      walletAddress: participant.walletAddress,
+      position: participant.position.toLowerCase() === "yes" ? "yes" : "no",
+      amount: participant.amount,
+      timestamp: new Date(participant.timestamp)
+    };
+  };
+
+  // Ensure participants are correctly typed
+  const typedParticipants = participants 
+    ? participants.map(p => formatParticipant(p))
+    : [];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Participants</CardTitle>
-        <CardDescription>{participants.length} bettors have joined</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Address</th>
-                <th className="text-center py-3 px-2 text-sm font-medium text-muted-foreground">Position</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">Amount</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {participants.map((participant, index) => (
-                <tr key={`${participant.walletAddress}-${index}`} className="border-b last:border-0">
-                  <td className="py-3 px-2 font-mono text-sm">{shortenAddress(participant.walletAddress)}</td>
-                  <td className="py-3 px-2 text-center">
-                    <span
-                      className={`inline-block px-2 py-1 rounded-full text-xs ${
-                        participant.position === "yes"
-                          ? "bg-accent-green/10 text-accent-green"
-                          : "bg-accent-coral/10 text-accent-coral"
-                      }`}
-                    >
-                      {participant.position.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-right font-mono">{formatSOL(participant.amount)}</td>
-                  <td className="py-3 px-2 text-right text-sm text-muted-foreground">
-                    {formatDistanceToNow(participant.timestamp, { addSuffix: true })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {typedParticipants.length === 0 ? (
+          <p className="text-center py-4 text-muted-foreground">No participants yet. Be the first to place a bet!</p>
+        ) : (
+          <div className="space-y-4">
+            {typedParticipants.map((participant, i) => (
+              <div 
+                key={i} 
+                className="flex justify-between items-center py-2 border-b border-border last:border-0"
+              >
+                <div>
+                  <p className="font-medium">
+                    {participant.walletAddress.substring(0, (participant.walletAddress.includes('...') ? participant.walletAddress.length : 6))}
+                    {!participant.walletAddress.includes('...') && '...'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatRelativeTime(new Date(participant.timestamp))}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-medium ${
+                    participant.position === "yes" 
+                      ? "text-accent-green" 
+                      : "text-accent-coral"
+                  }`}>
+                    {participant.position.toUpperCase()}
+                  </p>
+                  <p className="font-mono text-sm">{formatSOL(participant.amount)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

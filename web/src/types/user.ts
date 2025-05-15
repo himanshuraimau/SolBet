@@ -1,16 +1,31 @@
-export interface UserProfile {
-  walletAddress: string
-  displayName?: string
-  avatar?: string
-  createdAt?: string | Date  // Add createdAt field
-  stats: {
-    betsCreated: number
-    betsJoined: number
-    winRate: number
-    totalWinnings: number
-  }
-  preferences: {
-    theme: "light" | "dark" | "system"
-    notifications: boolean
-  }
+import { PublicKey } from '@solana/web3.js';
+import { BetOutcome } from './bets';
+
+/**
+ * User account structure (matches the Rust contract struct)
+ */
+export interface User {
+  walletAddress: PublicKey;
+  activeBets: PublicKey[];
+}
+
+/**
+ * UserBet structure (matches the Rust contract struct)
+ */
+export interface UserBet {
+  user: PublicKey;
+  betAccount: PublicKey;
+  amount: bigint;
+  position: BetOutcome;
+  isClaimed: boolean;
+}
+
+/**
+ * Database User model (matches the Prisma schema)
+ */
+export interface DBUser {
+  id: string;
+  walletAddress: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

@@ -25,7 +25,14 @@ export default function WalletOption() {
   // Refresh wallet data when wallet is connected
   useEffect(() => {
     if (connected && publicKey) {
-      refreshBalance();
+      refreshBalance(publicKey.toString());
+    }
+  }, [connected, publicKey, refreshBalance]);
+
+  // Handler to manually refresh balance
+  const handleRefresh = useCallback(() => {
+    if (connected && publicKey) {
+      refreshBalance(publicKey.toString());
     }
   }, [connected, publicKey, refreshBalance]);
 
@@ -92,7 +99,7 @@ export default function WalletOption() {
         <div className="flex justify-between w-full">
           <Button 
             variant="outline" 
-            onClick={refreshBalance}
+            onClick={handleRefresh}
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -27,7 +27,6 @@ const FallbackVisualization = () => (
 )
 
 
-
 export default function Hero() {
   const controls = useAnimation()
   const ref = useRef(null)

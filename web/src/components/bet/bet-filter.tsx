@@ -1,70 +1,97 @@
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Search, Filter } from "lucide-react"
-import Link from "next/link"
-import { useState, ChangeEvent, KeyboardEvent } from "react"
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Search, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BetFilterProps {
-  searchValue: string
-  category: string
-  onSearch: (search: string) => void
-  onCategoryChange: (category: string) => void
+  searchValue: string;
+  category: string;
+  onSearch: (search: string) => void;
+  onCategoryChange: (category: string) => void;
 }
 
-export function BetFilter({ 
-  searchValue, 
-  category, 
-  onSearch, 
-  onCategoryChange 
+export function BetFilter({
+  searchValue = "",
+  category = "",
+  onSearch,
+  onCategoryChange,
 }: BetFilterProps) {
-  const [searchInput, setSearchInput] = useState(searchValue)
+  const [searchInput, setSearchInput] = useState(searchValue);
   
-  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value)
-  }
+  // Sync the input with the searchValue prop
+  useEffect(() => {
+    setSearchInput(searchValue);
+  }, [searchValue]);
   
-  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      onSearch(searchInput)
-    }
-  }
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(searchInput);
+  };
   
-  const handleSearchSubmit = () => {
-    onSearch(searchInput)
-  }
+  // Handle clearing the search
+  const handleClearSearch = () => {
+    setSearchInput("");
+    onSearch("");
+  };
   
-  const toggleCategory = () => {
-    // Toggle category filter
-    // For now just toggle between empty and crypto, but this could be expanded with a dropdown
-    onCategoryChange(category ? "" : "crypto")
-  }
+  // Categories for the filter
+  const categories = [
+    { value: "all", label: "All Categories" }, // Changed from empty string to "all"
+    { value: "crypto", label: "Cryptocurrency" },
+    { value: "sports", label: "Sports" },
+    { value: "politics", label: "Politics" },
+    { value: "entertainment", label: "Entertainment" },
+    { value: "tech", label: "Technology" },
+    { value: "other", label: "Other" },
+  ];
   
   return (
-    <div className="flex gap-2 w-full md:w-auto">
-      <div className="relative w-full md:w-auto">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input 
-          type="search" 
-          placeholder="Search bets..." 
-          className="w-full md:w-[260px] pl-9" 
-          value={searchInput}
-          onChange={handleSearchChange}
-          onKeyDown={handleSearchKeyDown}
-        />
-      </div>
-      <Button 
-        variant="outline" 
-        size="icon"
-        onClick={toggleCategory}
-      >
-        <Filter className="h-4 w-4" />
-      </Button>
-      <Button 
-        className="bg-primary-gradient text-text-plum"
-        asChild
-      >
-        <Link href="/create-bet">Create Bet</Link>
-      </Button>
+    <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search bets..."
+            className="pl-9 pr-8 w-full md:w-[200px] xl:w-[280px]"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Button type="submit" variant="default" size="icon">
+          <Search className="h-4 w-4" />
+        </Button>
+      </form>
+      
+      <Select value={category} onValueChange={onCategoryChange}>
+        <SelectTrigger className="w-full md:w-[180px]">
+          <SelectValue placeholder="All Categories" />
+        </SelectTrigger>
+        <SelectContent>
+          {categories.map((cat) => (
+            <SelectItem key={cat.value} value={cat.value}>
+              {cat.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
-  )
+  );
 }

@@ -1,25 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
-import { useWalletData } from "@/store/wallet-store";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { fetchUserBets } from "@/lib/api";
-
-// -------------------------------------------------------
-// Types
-// -------------------------------------------------------
-
-export type BetStatus = "ACTIVE" | "CREATED" | "PARTICIPATED" | "RESOLVED";
 
 export interface UserBet {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   amount: number;
+  position?: "YES" | "NO";
+  outcome?: "YES" | "NO";
   payout?: number;
-  status: string;
-  createdAt: string;
   expiresAt: string;
-  position?: string;
-  outcome?: string;
+  status: "active" | "resolved" | "cancelled";
+  createdAt: string;
 }
 
 export interface UserBetsResponse {
@@ -29,16 +23,12 @@ export interface UserBetsResponse {
   resolved: UserBet[];
 }
 
-// -------------------------------------------------------
-// Main Hook
-// -------------------------------------------------------
-
 /**
  * Hook to fetch user's bets grouped by status
  * @returns Query result containing user's bets categorized by status
  */
 export function useUserBets() {
-  const { publicKey } = useWalletData();
+  const { publicKey } = useWallet();
   const walletAddress = publicKey?.toString();
 
   return useQuery<UserBetsResponse>({

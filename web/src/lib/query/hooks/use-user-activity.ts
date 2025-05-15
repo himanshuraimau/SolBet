@@ -1,29 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/config";
-import { useWalletData } from "@/store/wallet-store";
-import { fetchUserActivity } from "@/lib/api/index";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { fetchUserActivity } from "@/lib/api";
 
 export interface UserActivity {
   id: string;
-  type: string;
   title: string;
+  type: "bet_placed" | "bet_won" | "bet_lost" | "withdrawal" | "payout";
   amount: number;
   timestamp: string;
-  betId?: string | null;
+  betId?: string;
 }
 
 /**
- * Hook to fetch user activity from the user's transactions
- * @param limit Number of activity items to fetch (default: 5)
+ * Hook to fetch user's activity feed
+ * @param limit Number of activities to fetch
  */
 export function useUserActivity(limit: number = 5) {
-  const { publicKey } = useWalletData();
+  const { publicKey } = useWallet();
   const walletAddress = publicKey?.toString();
 
   return useQuery<UserActivity[]>({
     queryKey: [...queryKeys.user.activity(), limit],
-    queryFn: () => walletAddress ? fetchUserActivity(walletAddress, limit) : Promise.resolve([]),
+    queryFn: () => walletAddress 
+      ? fetchUserActivity(walletAddress, limit) 
+      : Promise.resolve([]),
     enabled: !!walletAddress,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds
   });
 }

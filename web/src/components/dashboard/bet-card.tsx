@@ -43,7 +43,7 @@ export function BetCard({ bet, type }: BetCardProps) {
           {bet.position && (
             <div>
               <span className="text-muted-foreground">Position:</span>{" "}
-              <Badge variant={bet.position === "YES" ? "success" : "destructive"} className="ml-1">
+              <Badge variant={bet.position === "YES" ? "default" : "destructive"} className="ml-1">
                 {bet.position}
               </Badge>
             </div>
@@ -76,7 +76,7 @@ function getStatusBadge(bet: UserBet, type: string) {
         (bet.position === "NO" && bet.outcome === "NO");
       
       return (
-        <Badge variant={userWon ? "success" : "destructive"}>
+        <Badge variant={userWon ? "default" : "destructive"}>
           {userWon ? "Won" : "Lost"}
         </Badge>
       );

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Share2, Check, Twitter, Copy } from "lucide-react"
-import type { Bet } from "@/types/bet"
+import type { Bet } from "@/mock/adapters" // Updated import from types to mock adapters
 import { formatSOL } from "@/lib/utils"
 
 interface ShareCardProps {

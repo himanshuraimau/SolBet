@@ -1,14 +1,6 @@
-export type ThemeMode = "light" | "dark" | "system"
+/**
+ * Common types used throughout the SolBet application
+ */
 
-export interface PaginationParams {
-  page: number
-  limit: number
-}
-
-export interface ApiResponse<T> {
-  data: T
-  success: boolean
-  message?: string
-}
-
-export type TimeFrame = "1d" | "7d" | "30d" | "all"
+// Time frame for data queries
+export type TimeFrame = "1d" | "7d" | "30d" | "all";

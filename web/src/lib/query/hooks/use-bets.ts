@@ -1,89 +1,84 @@
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
-import { queryKeys } from "../config"
-import type { BetCategory, BetStatus } from "@/types/bet"
-import { useSolanaBet } from "@/hooks/bet/use-solana-bet"
-import { useWallet } from "@solana/wallet-adapter-react"
-import { fetchBetById, fetchBets } from "@/lib/api"
+import { useQuery } from "@tanstack/react-query";
+import { delay } from "@/mock/utils";
+import { Bet } from "@/mock/adapters";
 
-/**
- * Hook to fetch a list of bets with optional filtering
- * @param category Optional category filter
- * @param status Optional status filter
- */
-export function useBets(category?: BetCategory, status?: BetStatus) {
-  return useQuery({
-    queryKey: queryKeys.bets.list(JSON.stringify({ category, status })),
-    queryFn: () => fetchBets(category, status),
-  })
-}
-
-/**
- * Hook to fetch a single bet by ID
- * Includes both API and Solana blockchain data
- * @param betId The bet ID
- */
-export const useBet = (betId: string) => {
-  const { publicKey } = useWallet();
-  const walletAddress = publicKey?.toString();
-
-  // Fetch bet data from the API
-  const {
-    data,
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: queryKeys.bets.detail(betId),
-    queryFn: () => fetchBetById(betId),
-    enabled: !!betId,
-    retry: 3,
-    retryDelay: 1000,
-    refetchInterval: 5000, // Refetch every 5 seconds
-  });
-
-  // Also get Solana chain data for this bet
-  const { useBetData: useSolanaBetData } = useSolanaBet();
-  const { 
-    data: solanaBetData,
-    isLoading: isSolanaLoading,
-    error: solanaError
-  } = useSolanaBetData(betId);
-
-  // Check if the current user has already placed a bet
-  const hasUserParticipated = !!data?.participants.find(
-    (p: any) => p.walletAddress === walletAddress
-  );
-
-  const userPosition = data?.participants.find(
-    (p: any) => p.walletAddress === walletAddress
-  )?.position;
-
+// Generate a mock bet for the detailed view
+const generateMockBet = (id: string): Bet => {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000); // 0-7 days in future
+  
+  const yesPool = Math.random() * 20 + 5; // 5-25 SOL
+  const noPool = Math.random() * 20 + 5; // 5-25 SOL
+  const totalPool = yesPool + noPool;
+  
   return {
-    data,
-    solanaBetData,
-    isLoading: isLoading || isSolanaLoading,
-    error: error || solanaError,
-    hasUserParticipated,
-    userPosition,
-    refetch,
+    id,
+    title: `Mock Bet #${id.substring(0, 6)}`,
+    description: "This is a mock bet generated for development purposes. Will Bitcoin reach $100,000 before the end of the year?",
+    creator: "HXtBm8XZbxaTt41uqaKhwUAa6Z1aPyvJdsZVENiWsetg",
+    category: ["crypto", "sports", "politics", "entertainment", "science", "tech"][Math.floor(Math.random() * 6)],
+    status: "active",
+    yesPool,
+    noPool,
+    totalPool,
+    minimumBet: 0.1,
+    maximumBet: 10,
+    daysLeft: Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    expiresAt,
+    endTime: expiresAt,
+    startTime: new Date(now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000), // 0-30 days in past
+    participants: Array(Math.floor(Math.random() * 20) + 5).fill(null).map(() => ({
+      walletAddress: `${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 8)}`,
+      position: Math.random() > 0.5 ? 'yes' : 'no',
+      amount: Math.random() * 5 + 0.1, // 0.1-5.1 SOL
+      timestamp: new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000) // 0-7 days in past
+    }))
   };
 };
 
-/**
- * Hook for infinite scrolling of bets
- * Used for paginated bet lists
- * @param category Optional category filter
- * @param status Optional status filter
- */
-export function useInfiniteBets(category?: BetCategory, status?: BetStatus) {
-  return useInfiniteQuery({
-    queryKey: queryKeys.bets.list(JSON.stringify({ category, status, infinite: true })),
-    queryFn: ({ pageParam = 1 }) => fetchBets(category, status, pageParam as number),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage, _, lastPageParam) => {
-      if (lastPage.bets.length === 0) return undefined
-      if (lastPageParam >= lastPage.totalPages) return undefined
-      return (lastPageParam as number) + 1
+// Hook to get a specific bet by ID
+export function useBet(betId: string | null) {
+  return useQuery({
+    queryKey: ["bet", betId],
+    queryFn: async () => {
+      if (!betId) return null;
+      await delay(800); // Simulate network delay
+      return generateMockBet(betId);
     },
-  })
+    enabled: !!betId,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+}
+
+// Hook to get all bets (optionally filtered)
+export function useBets(category?: string, status?: string) {
+  return useQuery({
+    queryKey: ["bets", category, status],
+    queryFn: async () => {
+      await delay(1200); // Simulate network delay
+      
+      // Generate 20 random bets
+      const bets = Array(20).fill(null).map((_, i) => generateMockBet(`bet-${i}`));
+      
+      // Apply filters if provided
+      let filtered = bets;
+      if (category && category !== "all") {
+        filtered = filtered.filter(bet => bet.category === category.toLowerCase());
+      }
+      if (status && status !== "all") {
+        filtered = filtered.filter(bet => bet.status === status.toLowerCase());
+      }
+      
+      return {
+        bets: filtered,
+        pagination: {
+          page: 1,
+          limit: 20,
+          totalItems: filtered.length,
+          totalPages: 1
+        }
+      };
+    },
+    refetchInterval: 60000, // Refetch every minute
+  });
 }

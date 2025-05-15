@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useAuth } from "@/providers/auth-provider";
 import { useWalletData } from "@/store/wallet-store";
 import { formatSOL } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
@@ -8,17 +10,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import WalletBadge from "@/components/wallet/wallet-badge";
+import { useExtendedUserProfile } from "@/hooks";
 
 export default function UserHeader() {
-  const { publicKey, connected, balance, refreshBalance, updateUserProfile, userProfile, isLoading } = useWalletData();
+  const { publicKey, connected } = useWallet();
+  const { balance, refreshBalance, isLoading: isBalanceLoading } = useWalletData();
+  const { data: userProfile, isLoading: isProfileLoading, refreshProfile } = useExtendedUserProfile();
+  const { updateUserProfile: updateAuthProfile } = useAuth();
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Refresh wallet data when component mounts or when wallet is connected
   useEffect(() => {
-    if (connected && publicKey) {
-      refreshBalance();
-      updateUserProfile();
+    if (connected && publicKey && !hasInitialized) {
+      const walletAddress = publicKey.toString();
+      refreshBalance(walletAddress);
+      updateAuthProfile();
+      refreshProfile();
+      setHasInitialized(true);
     }
-  }, [connected, publicKey, refreshBalance, updateUserProfile]);
+    
+    // Reset initialization flag when wallet disconnects
+    if (!connected || !publicKey) {
+      setHasInitialized(false);
+    }
+  }, [connected, publicKey, refreshBalance, updateAuthProfile, refreshProfile, hasInitialized]);
 
   if (!connected || !publicKey) {
     return (
@@ -53,7 +68,11 @@ export default function UserHeader() {
             </Avatar>
             <div>
               <h2 className="text-xl font-semibold">
-                {userProfile?.displayName || "Solana User"}
+                {isProfileLoading ? (
+                  <Skeleton className="h-6 w-32" />
+                ) : (
+                  userProfile?.displayName || "Solana User"
+                )}
               </h2>
               <p className="text-muted-foreground text-sm">
                 {formatWalletAddress(publicKey)}
@@ -64,7 +83,7 @@ export default function UserHeader() {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Wallet Balance</div>
-              {isLoading ? (
+              {isBalanceLoading ? (
                 <Skeleton className="h-7 w-24 mt-1" />
               ) : (
                 <div className="text-xl font-semibold font-mono">

@@ -1,110 +1,150 @@
-import { NextRequest } from "next/server";
+// /app/src/app/api/users/stats/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { safeApiHandler, validateUserByWalletAddress, getPeriodStartDate, formatApiResponse } from "@/lib/api-utils";
 
 /**
  * @route GET /api/users/stats
- * @description Get detailed statistics for a user over a specific time period
- * @param {string} address - The user's wallet address
- * @param {string} timeFrame - Time period for statistics (1d, 7d, 30d, all)
- * @returns {Object} User stats and bet history
+ * @desc Fetch user's statistics
  */
 export async function GET(request: NextRequest) {
-  return safeApiHandler(async () => {
+  try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
     const timeFrame = searchParams.get("timeFrame") || "7d";
-    
-    const user = await validateUserByWalletAddress(address!);
 
-    const now = new Date();
-    // Get period start date
-    const startDate = getPeriodStartDate(timeFrame, user.createdAt);
+    if (!address) {
+      return NextResponse.json(
+        { error: "Wallet address is required" },
+        { status: 400 }
+      );
+    }
 
-    const userBets = await prisma.userBet.findMany({
-      where: {
-        userId: user.id,
-        timestamp: {
-          gte: startDate,
-          lte: now,
+    // Find the user by wallet address
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: address },
+    });
+
+    if (!user) {
+      return NextResponse.json({
+        stats: {
+          winnings: 0,
+          losses: 0,
+          netProfit: 0,
+          winRate: 0,
+          betsPlaced: 0,
+          avgBetSize: 0,
+          betsWon: 0,
+          betsLost: 0,
+          activeBets: 0
         },
+        betHistory: []
+      }, { status: 200 });
+    }
+
+    // Calculate date filter based on timeFrame
+    let dateFilter = new Date();
+    if (timeFrame === "1d") {
+      dateFilter.setDate(dateFilter.getDate() - 1);
+    } else if (timeFrame === "7d") {
+      dateFilter.setDate(dateFilter.getDate() - 7);
+    } else if (timeFrame === "30d") {
+      dateFilter.setDate(dateFilter.getDate() - 30);
+    } else if (timeFrame === "all") {
+      dateFilter = new Date(0); // Beginning of time
+    }
+
+    // Get the user's bets within the time frame
+    const userBets = await prisma.userBet.findMany({
+      where: { 
+        userId: user.id,
+        createdAt: {
+          gte: dateFilter
+        }
       },
       include: {
-        bet: true,
-      },
-    });
-
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId: user.id,
-        timestamp: {
-          gte: startDate,
-          lte: now,
-        },
+        bet: true
       },
       orderBy: {
-        timestamp: "asc",
-      },
-    });
-
-    // Calculate statistics
-    let betsWon = 0;
-    let betsLost = 0;
-    let winnings = 0;
-    let losses = 0;
-    let activeBets = 0;
-    let totalBetAmount = 0;
-
-    userBets.forEach((userBet) => {
-      totalBetAmount += Number(userBet.amount) || 0;
-
-      if (userBet.bet) {
-        const status = userBet.bet.status;
-        
-        if (status.startsWith("resolved_") || status === "SETTLED" || status === "settled") {
-          const outcomeIsYes = status.includes("yes");
-          const userPositionIsYes = userBet.position.toUpperCase() === "YES";
-          
-          // Check if user won
-          if ((outcomeIsYes && userPositionIsYes) || (!outcomeIsYes && !userPositionIsYes)) {
-            betsWon++;
-            // Calculate winnings - in a real app, you'd have actual payout data
-            winnings += Number(userBet.amount) * 2; // Simple calculation
-          } else {
-            betsLost++;
-            losses += Number(userBet.amount) || 0;
-          }
-        } else if (status === "ACTIVE" || status === "active") {
-          activeBets++;
-        }
+        createdAt: 'desc'
       }
     });
 
-    // Format transaction history
-    const betHistory = transactions.map((tx) => ({
-      timestamp: tx.timestamp,
-      type: tx.type,
-      amount: Number(tx.amount) || 0,
-      title: `Type: ${tx.type}, Amount: ${tx.amount}`,
-    }));
+    // Get active bets (where bet status is ACTIVE)
+    const activeBets = userBets.filter(ub => ub.bet.status === 'ACTIVE').length;
 
-    // Compile stats
+    // Calculate stats
+    let winnings = 0;
+    let losses = 0;
+    let betsWon = 0;
+    let betsLost = 0;
+    let totalBetAmount = 0;
+    
+    const history = userBets.map(bet => {
+      const amount = parseFloat(bet.amount) / 1000000000; // Convert lamports to SOL
+      totalBetAmount += amount;
+      
+      let type = "PENDING";
+      let title = "Bet Pending";
+      
+      if (bet.bet.status === 'RESOLVED') {
+        if (bet.bet.outcome === bet.position) {
+          type = "WIN";
+          title = "Bet Won";
+          betsWon++;
+          // Simple calculation for winnings
+          const winAmount = amount * 1.8; // Simplified payout calculation
+          winnings += winAmount;
+          return {
+            timestamp: bet.bet.updatedAt.toISOString(),
+            type,
+            amount: winAmount,
+            title,
+            status: "success",
+            betId: bet.betId
+          };
+        } else if (bet.bet.outcome !== null) {
+          type = "LOSS";
+          title = "Bet Lost";
+          betsLost++;
+          losses += amount;
+        }
+      }
+      
+      return {
+        timestamp: bet.createdAt.toISOString(),
+        type,
+        amount,
+        title,
+        status: bet.bet.status === 'RESOLVED' ? "success" : "pending",
+        betId: bet.betId
+      };
+    });
+    
+    const betsPlaced = userBets.length;
+    const avgBetSize = betsPlaced > 0 ? totalBetAmount / betsPlaced : 0;
+    const winRate = betsPlaced > 0 ? Math.round((betsWon / betsPlaced) * 100) : 0;
+    
     const stats = {
-      winnings,
-      losses,
-      netProfit: winnings - losses,
-      winRate: userBets.length > 0 && (betsWon + betsLost) > 0 ? (betsWon / (betsWon + betsLost)) * 100 : 0,
-      betsPlaced: userBets.length,
-      avgBetSize: userBets.length > 0 ? totalBetAmount / userBets.length : 0,
-      betsWon,
-      betsLost,
-      activeBets,
+      stats: {
+        winnings: parseFloat(winnings.toFixed(2)),
+        losses: parseFloat(losses.toFixed(2)),
+        netProfit: parseFloat((winnings - losses).toFixed(2)),
+        winRate,
+        betsPlaced,
+        avgBetSize: parseFloat(avgBetSize.toFixed(2)),
+        betsWon,
+        betsLost,
+        activeBets
+      },
+      betHistory: history
     };
 
-    return formatApiResponse({
-      stats,
-      betHistory,
-      timeFrame,
-    });
-  });
+    return NextResponse.json(stats);
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch user stats" },
+      { status: 500 }
+    );
+  }
 }

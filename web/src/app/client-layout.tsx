@@ -3,13 +3,12 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 import Header from "@/components/layout/header"
 import Footer from "@/components/layout/footer"
 import { WalletProvider } from "@/providers/wallet-provider"
-import { QueryProvider } from "@/providers/query-provider"
+import { QueryProvider } from "@/providers/QueryProvider"
 import { usePathname } from "next/navigation"
-import AuthStateProvider from "@/providers/auth-provider"
+import { AuthProvider } from "@/providers/auth-provider" // Fix: Import named export
 
 export default function ClientRootLayout({
   children,
@@ -31,24 +30,20 @@ export default function ClientRootLayout({
   }, []);
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${spaceGrotesk} ${nunito} ${jetbrainsMono} font-sans`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <QueryProvider>
-            {/* Always render WalletProvider to ensure context is available */}
-            <WalletProvider>
-              <AuthStateProvider>
-                <div className="flex min-h-screen flex-col">
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                  <FooterWrapper />
-                </div>
-              </AuthStateProvider>
-            </WalletProvider>
-          </QueryProvider>
-        </ThemeProvider>
-      </body>
-    </html>
+    <div className={`${spaceGrotesk} ${nunito} ${jetbrainsMono} font-sans`}>
+      <QueryProvider>
+        {/* Always render WalletProvider to ensure context is available */}
+        <WalletProvider>
+          <AuthProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <FooterWrapper />
+            </div>
+          </AuthProvider>
+        </WalletProvider>
+      </QueryProvider>
+    </div>
   )
 }
 

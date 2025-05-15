@@ -1,25 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import { useWalletData } from "@/store/wallet-store";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRightIcon } from "lucide-react";
-import { useWallet } from "@solana/wallet-adapter-react";
 import TransactionList from "@/components/wallet/transaction-list";
 import Link from "next/link";
+import { useWalletTransactions } from "@/hooks";
 
 export function TransactionHistory() {
-  const { publicKey, connected } = useWallet();
-  const { transactions, refreshBalance, isLoading } = useWalletData();
-
-  // Refresh wallet data when component mounts or when wallet is connected
-  useEffect(() => {
-    if (connected && publicKey) {
-      refreshBalance();
-    }
-  }, [connected, publicKey, refreshBalance]);
+  const { connected } = useWallet();
+  const { transactions, isLoading } = useWalletTransactions(5);
 
   return (
     <Card>
@@ -47,7 +39,7 @@ export function TransactionHistory() {
             No transactions yet
           </div>
         ) : (
-          <TransactionList transactions={transactions.slice(0, 5)} />
+          <TransactionList transactions={transactions} />
         )}
       </CardContent>
     </Card>

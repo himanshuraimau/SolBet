@@ -1,74 +1,102 @@
-import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { useWallet } from "@solana/wallet-adapter-react"
-import { Bet, BetsResponse, PaginationInfo, BetTab } from "@/types/bet"
+import { useQuery } from "@tanstack/react-query";
+import { BetQueryParams, Bet } from "@/types/bet";
+import { useWallet } from "@solana/wallet-adapter-react";
 
-interface UseBetsProps {
-  tab: BetTab | string
-  page: number
-  search?: string
-  category?: string
+interface BetsResponse {
+  success: boolean;
+  data: {
+    bets: Bet[];
+    pagination: {
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      totalPages: number;
+    };
+  };
+  error?: string;
 }
 
-interface UseBetsReturn {
-  bets: Bet[]
-  pagination: PaginationInfo
-  isLoading: boolean
-  error: Error | null
-}
-
-export function useBets({ tab, page, search, category }: UseBetsProps): UseBetsReturn {
-  const [bets, setBets] = useState<Bet[]>([])
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    total: 0,
-    page: page,
-    limit: 12,
-    totalPages: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const { publicKey } = useWallet()
-
-  useEffect(() => {
-    async function fetchBets() {
-      setIsLoading(true)
-      setError(null)
-      
-      try {
-        let url = `/api/bets?tab=${tab}&page=${page}&limit=12`
-        
-        if (search) {
-          url += `&search=${encodeURIComponent(search)}`
-        }
-        
-        if (category) {
-          url += `&category=${encodeURIComponent(category)}`
-        }
-        
-        // Add wallet address for my-bets tab
-        if (tab === "my-bets" && publicKey) {
-          url += `&wallet=${publicKey.toString()}`
-        }
-        
-        const response = await fetch(url)
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch bets")
-        }
-        
-        const data: BetsResponse = await response.json()
-        setBets(data.bets)
-        setPagination(data.pagination)
-      } catch (err) {
-        console.error("Error fetching bets:", err)
-        setError(err instanceof Error ? err : new Error("An unknown error occurred"))
-      } finally {
-        setIsLoading(false)
+/**
+ * Hook to fetch all bets with filtering and pagination
+ */
+export function useBets(params: BetQueryParams = {}) {
+  const { tab = "all", page = 1, limit = 12, search = "", category = "" } = params;
+  const { publicKey } = useWallet();
+  
+  // Construct the query parameters
+  const queryParams = new URLSearchParams();
+  queryParams.append("tab", tab);
+  queryParams.append("page", page.toString());
+  queryParams.append("limit", limit.toString());
+  
+  if (search) {
+    queryParams.append("search", search);
+  }
+  
+  if (category && category !== "all") {
+    queryParams.append("category", category);
+  }
+  
+  // For "my-bets" tab, include the wallet address if connected
+  if (tab === "my-bets" && publicKey) {
+    queryParams.append("wallet", publicKey.toString());
+  }
+  
+  return useQuery<BetsResponse>({
+    queryKey: ["bets", tab, page, limit, search, category, publicKey?.toString()],
+    queryFn: async () => {
+      // Skip API call if user is requesting "my-bets" but not connected
+      if (tab === "my-bets" && !publicKey) {
+        return {
+          success: true,
+          data: {
+            bets: [],
+            pagination: {
+              page,
+              pageSize: limit,
+              totalItems: 0,
+              totalPages: 0
+            }
+          }
+        };
       }
-    }
-
-    fetchBets()
-  }, [tab, page, search, category, publicKey])
-
-  return { bets, pagination, isLoading, error }
+      
+      const response = await fetch(`/api/bets?${queryParams.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch bets");
+      }
+      
+      return await response.json();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
 }
+
+// Hook to get a specific bet by ID
+export function useBet(betId: string) {
+  return useQuery({
+    queryKey: ['bet', betId],
+    queryFn: async () => {
+      const response = await fetch(`/api/bets/${betId}`);
+      
+      if (!response.ok) {
+        throw new Error('Bet not found');
+      }
+      
+      const bet = await response.json();
+      
+      // Add participants with realistic data
+      const solanaBetData = {
+        betAccount: betId,
+        escrowAccount: `escrow-${betId}`,
+        // Additional on-chain data would go here
+      };
+      
+      return { ...bet, solanaBetData };
+    }
+  });
+}
+
+// Re-export for completeness
+export default { useBets, useBet };

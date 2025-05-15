@@ -1,59 +1,55 @@
 "use client"
 
-import { motion } from "framer-motion"
-import type { ReactNode } from "react"
+import React, { useState, useEffect } from 'react';
 
 interface FadeInProps {
-  children: ReactNode
-  delay?: number
-  duration?: number
-  className?: string
-  direction?: "up" | "down" | "left" | "right" | "none"
-  distance?: number
+  children: React.ReactNode;
+  direction?: 'up' | 'down' | 'left' | 'right';
+  delay?: number;
+  duration?: number;
+  className?: string;
 }
 
-export default function FadeIn({
-  children,
-  delay = 0,
-  duration = 0.5,
-  className,
-  direction = "up",
-  distance = 20,
+export default function FadeIn({ 
+  children, 
+  direction = 'up', 
+  delay = 0, 
+  duration = 0.3,
+  className = ''
 }: FadeInProps) {
-  const getDirectionalProps = () => {
-    switch (direction) {
-      case "up":
-        return { y: distance }
-      case "down":
-        return { y: -distance }
-      case "left":
-        return { x: distance }
-      case "right":
-        return { x: -distance }
-      case "none":
-        return {}
+  const [isVisible, setIsVisible] = useState(false);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, delay * 1000);
+    
+    return () => clearTimeout(timer);
+  }, [delay]);
+  
+  // Map direction to transform value
+  const getTransform = () => {
+    if (!isVisible) {
+      switch (direction) {
+        case 'up': return 'translateY(20px)';
+        case 'down': return 'translateY(-20px)';
+        case 'left': return 'translateX(20px)';
+        case 'right': return 'translateX(-20px)';
+        default: return 'translateY(20px)';
+      }
     }
-  }
-
+    return 'translate(0, 0)';
+  };
+  
+  const style: React.CSSProperties = {
+    opacity: isVisible ? 1 : 0,
+    transform: getTransform(),
+    transition: `opacity ${duration}s ease, transform ${duration}s ease`,
+  };
+  
   return (
-    <motion.div
-      className={className}
-      initial={{
-        opacity: 0,
-        ...getDirectionalProps(),
-      }}
-      animate={{
-        opacity: 1,
-        x: 0,
-        y: 0,
-      }}
-      transition={{
-        duration,
-        delay,
-        ease: "easeOut",
-      }}
-    >
+    <div style={style} className={className}>
       {children}
-    </motion.div>
-  )
+    </div>
+  );
 }

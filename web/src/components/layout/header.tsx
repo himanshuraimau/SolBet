@@ -72,9 +72,19 @@ export default function Header() {
       </nav>
 
       {/* Mobile menu */}
-      <div className={`lg:hidden ${mobileMenuOpen ? "fixed inset-0 z-50" : "hidden"}`}>
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-xs" />
-        <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-background px-6 py-6 sm:max-w-sm">
+      <div 
+        className={cn(
+          "lg:hidden fixed inset-0 z-50 transition-opacity duration-300 ease-in-out",
+          mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+      >
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
+        <div 
+          className={cn(
+            "fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-background px-6 py-6 sm:max-w-sm shadow-lg transform transition-transform duration-300 ease-in-out",
+            mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          )}
+        >
           <div className="flex items-center justify-between">
             <Link href="/" className="-m-1.5 p-1.5">
               <span className="font-heading text-2xl font-bold text-gradient-primary">SolBet</span>

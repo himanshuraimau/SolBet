@@ -1,69 +1,86 @@
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { safeApiHandler, ApiError, formatApiResponse } from "@/lib/api-utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-/**
- * @route GET /api/bets/:id
- * @description Get a bet by ID with details
- * @param {string} id - The bet ID
- * @returns {Object} Bet details including participants
- */
 export async function GET(
-  _: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: { id: string } }
 ) {
-  return safeApiHandler(async () => {
-    const { id } = await params;
-
-    // Fetch the bet by ID
+  try {
+    // Get the ID parameter - properly awaiting params to address Next.js warning
+    const params = await context.params;
+    const betId = params.id;
+    
+    // Fetch the bet from the database
     const bet = await prisma.bet.findUnique({
-      where: { id },
+      where: {
+        id: betId,
+      },
       include: {
-        creator: {
+        creator: true,
+        userBets: {
           select: {
-            walletAddress: true,
-            displayName: true,
-          },
-        },
-        participants: {
-          include: {
+            userId: true,
+            position: true,
+            amount: true,
+            createdAt: true,
+            userBetPublicKey: true,
             user: {
               select: {
-                walletAddress: true,
-              },
-            },
-          },
-        },
+                walletAddress: true
+              }
+            }
+          }
+        }
       },
     });
-
+    
     if (!bet) {
-      return ApiError.notFound("Bet not found");
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Bet not found' 
+      }, { status: 404 });
     }
-
-    // Format the response
+    
+    // Format the bet data
     const formattedBet = {
       id: bet.id,
       title: bet.title,
       description: bet.description,
+      creatorAddress: bet.creator.walletAddress,
+      betPublicKey: bet.betPublicKey,
+      escrowAccount: bet.escrowAccount,
       category: bet.category,
-      creator: bet.creator.walletAddress,
-      creatorName: bet.creator.displayName,
-      yesPool: bet.yesPool,
-      noPool: bet.noPool,
-      minimumBet: bet.minimumBet,
-      maximumBet: bet.maximumBet,
-      startTime: bet.startTime,
-      endTime: bet.endTime,
-      status: bet.status,
-      participants: bet.participants.map((p) => ({
-        walletAddress: p.user.walletAddress,
-        position: p.position,
-        amount: p.amount,
-        timestamp: p.timestamp,
-      })),
+      status: bet.status.toLowerCase(),
+      outcome: bet.outcome?.toLowerCase() || null,
+      yesPool: parseFloat(bet.yesPool) / 1e9, // Convert from lamports to SOL
+      noPool: parseFloat(bet.noPool) / 1e9,
+      totalPool: parseFloat(bet.totalPool) / 1e9,
+      minimumBet: parseFloat(bet.minBetAmount) / 1e9,
+      maximumBet: parseFloat(bet.maxBetAmount) / 1e9,
+      expiresAt: bet.expiresAt.toISOString(),
+      endTime: bet.expiresAt,
+      startTime: bet.createdAt,
+      daysLeft: Math.max(0, Math.ceil((bet.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))),
+      participants: bet.userBets.map(userBet => ({
+        walletAddress: userBet.user.walletAddress,
+        position: userBet.position.toLowerCase() === "yes" ? "yes" : "no", // Ensure it's either "yes" or "no"
+        amount: parseFloat(userBet.amount) / 1e9,
+        timestamp: userBet.createdAt,
+        onChainUserBetAccount: userBet.userBetPublicKey
+      }))
     };
-
-    return formatApiResponse(formattedBet);
-  });
+    
+    return NextResponse.json({
+      success: true,
+      bet: formattedBet
+    });
+    
+  } catch (error) {
+    console.error('Error fetching bet:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch bet',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
 }
